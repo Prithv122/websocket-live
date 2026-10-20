@@ -57,21 +57,21 @@ test("formatAge", () => {
   assert.deepEqual([0, 999, 1000, 59_999, 60_000, 3_600_000, -5].map(formatAge), ["0s", "0s", "1s", "59s", "1m", "1h", "0s"]);
 });
 
-test("revenue chart: one bar per zone, a labelled value each, and an aria-label with the numbers", () => {
+test("revenue chart: one row per zone with text labels, and an aria-label with the numbers", () => {
   const view = viewWith([order(1, "north", 1234567), order(2, "south", 500), order(3, "south", 250)]);
   const { html, title } = revenueByZone(view);
   assert.equal(title, "Revenue by zone");
-  assert.match(html, /^<svg [^>]*role="img"/);
+  assert.match(html, /^<div class="bars" role="img" aria-label="Revenue by zone: north \u20B912,34,567, south \u20B9750"/);
   assert.equal((html.match(/<rect /g) ?? []).length, 2);
-  assert.match(html, /aria-label="Revenue by zone: north ₹12,34,567, south ₹750"/);
-  assert.match(html, />₹12,34,567</);
-  assertBalanced(html, ["svg"]);
+  assert.match(html, /<span class="bar-label">north<\/span><span class="bar-value">\u20B912,34,567<\/span>/);
+  assert.doesNotMatch(html, /<text|style=/, "labels are HTML, and no inline styles (CSP)");
+  assertBalanced(html, ["div", "svg", "span"]);
 });
 
-test("revenue chart: the widest bar fits inside its lane and is never zero-width", () => {
+test("revenue chart: the largest bar is full width and none is zero-width", () => {
   const view = viewWith([order(1, "north", 1_000_000), order(2, "south", 0.01)]);
   const widths = [...revenueByZone(view).html.matchAll(/<rect [^>]*width="([\d.]+)"/g)].map((m) => Number(m[1]));
-  assert.equal(widths[0], 360 - 64 - 100);
+  assert.equal(widths[0], 100);
   assert.ok(widths[1] >= 1);
 });
 

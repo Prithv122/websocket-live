@@ -240,14 +240,36 @@ main {
   height: auto;
 }
 
-.chart text {
-  font-size: 12px;
-  fill: var(--text);
+/* Revenue bars: text is HTML, so it keeps its size at any viewport width. */
+
+.bars {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: var(--space-1);
+  row-gap: 0.15rem;
+  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
 
-.chart .chart-label {
-  fill: var(--text-muted);
+.bar-label {
+  color: var(--text-muted);
+}
+
+.bar-value {
+  text-align: right;
+}
+
+.bar-track {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 0.6rem;
+  border-radius: 3px;
+  background: var(--bg-subtle);
 }
 
 .bar {
@@ -264,6 +286,7 @@ main {
   stroke: var(--accent);
   stroke-width: 2;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke; /* keep the line weight when the svg shrinks */
 }
 
 .spark-area {

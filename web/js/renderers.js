@@ -25,9 +25,8 @@ export function formatAge(ms) {
 
 const empty = (text) => `<p class="empty">${esc(text)}</p>`;
 
-/* 1. Revenue per zone: horizontal bars, values labelled. */
-
-const BAR = { width: 360, row: 26, labelW: 64, valueW: 100, barH: 16 };
+/* 1. Revenue per zone: labelled horizontal bars. Labels are HTML text so they stay readable
+   at any width; only the bar itself is SVG (width as an attribute, no inline styles). */
 
 export function revenueByZone({ store }) {
   const { zones } = store;
@@ -35,22 +34,19 @@ export function revenueByZone({ store }) {
   if (zones.length === 0) return { id: "revenue-by-zone", title, html: empty("Waiting for orders\u2026") };
 
   const max = Math.max(...zones.map((z) => z.revenue), 1);
-  const barMax = BAR.width - BAR.labelW - BAR.valueW;
   const label = `${title}: ${zones.map((z) => `${z.zone} ${formatRupees(z.revenue)}`).join(", ")}`;
   const rows = zones
-    .map((z, i) => {
-      const y = i * BAR.row;
-      const w = Math.max(1, (z.revenue / max) * barMax);
+    .map((z) => {
+      const width = Math.max(1, (z.revenue / max) * 100).toFixed(1);
       return (
-        `<text class="chart-label" x="${BAR.labelW - 8}" y="${y + 17}" text-anchor="end">${esc(z.zone)}</text>` +
-        `<rect class="bar" x="${BAR.labelW}" y="${y + 4}" width="${w.toFixed(1)}" height="${BAR.barH}" rx="3"/>` +
-        `<text class="chart-value" x="${(BAR.labelW + w + 6).toFixed(1)}" y="${y + 17}">${formatRupees(z.revenue)}</text>`
+        `<div class="bar-row"><span class="bar-label">${esc(z.zone)}</span>` +
+        `<span class="bar-value">${formatRupees(z.revenue)}</span>` +
+        `<svg class="bar-track" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">` +
+        `<rect class="bar" width="${width}" height="6"/></svg></div>`
       );
     })
     .join("");
-  const height = zones.length * BAR.row;
-  const html = `<svg class="chart" viewBox="0 0 ${BAR.width} ${height}" role="img" aria-label="${esc(label)}">${rows}</svg>`;
-  return { id: "revenue-by-zone", title, html };
+  return { id: "revenue-by-zone", title, html: `<div class="bars" role="img" aria-label="${esc(label)}">${rows}</div>` };
 }
 
 /* 2. Events per second over the last 60 s. */
