@@ -57,6 +57,10 @@ def subscriber_count(hub: Hub) -> int:
     return len(hub.stats()["subscribers"])
 
 
+def count_events(messages: list[dict]) -> int:
+    return sum(m["type"] == "event" for m in messages)
+
+
 async def collect(socket: websockets.asyncio.client.ClientConnection, into: list[dict]) -> None:
     with contextlib.suppress(Exception):
         async for raw in socket:
@@ -98,10 +102,10 @@ async def run_scenario(strategy: str, tmp_path: Path) -> dict:
                         completed += 1
                     if blocked:
                         # Give anything still in flight time to arrive before counting.
-                        await wait_for(lambda: len(received) >= completed)
+                        await wait_for(lambda: count_events(received) >= completed)
                         await asyncio.sleep(0.3)
                     else:
-                        await wait_for(lambda: len(received) >= EVENTS)
+                        await wait_for(lambda: count_events(received) >= EVENTS)
                 subs = {s["client"]: s for s in hub.stats()["subscribers"]}
                 seq = hub.stats()["channels"]["orders"]["seq"]
                 reader.cancel()
@@ -137,9 +141,9 @@ def test_queued_fanout_keeps_healthy_clients_flowing(tmp_path: Path) -> None:
     assert not result["blocked"]
     assert result["completed"] == EVENTS
     assert result["slowest_post"] < 0.5
-    assert [(m["type"], m["seq"]) for m in result["received"]] == [
-        ("event", n) for n in range(1, EVENTS + 1)
-    ]
+    greeting, *rest = result["received"]
+    assert greeting["type"] == "heartbeat"
+    assert [(m["type"], m["seq"]) for m in rest] == [("event", n) for n in range(1, EVENTS + 1)]
     assert result["subs"]["healthy"]["dropped"] == 0
     assert result["subs"]["stalled"]["dropped"] > 0, "the stalled client should have lost events"
 

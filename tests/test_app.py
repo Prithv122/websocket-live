@@ -75,7 +75,9 @@ def test_websocket_receives_live_events(client: TestClient) -> None:
     with client.websocket_connect("/ws/orders?client=tester") as ws:
         wait_until(lambda: subscriber_count(client) == 1)
         publish(client, 2)
+        greeting = json.loads(ws.receive_text())
         messages = [json.loads(ws.receive_text()) for _ in range(2)]
+    assert (greeting["type"], greeting["seq"]) == ("heartbeat", 0)
     assert [(m["v"], m["channel"], m["seq"], m["type"]) for m in messages] == [
         (1, "orders", 1, "event"),
         (1, "orders", 2, "event"),
@@ -86,7 +88,13 @@ def test_websocket_receives_live_events(client: TestClient) -> None:
 def test_websocket_resumes_from_since(client: TestClient) -> None:
     publish(client, 5)
     with client.websocket_connect("/ws/orders?since=2") as ws:
-        assert [json.loads(ws.receive_text())["seq"] for _ in range(3)] == [3, 4, 5]
+        messages = [json.loads(ws.receive_text()) for _ in range(4)]
+    assert [(m["type"], m["seq"]) for m in messages] == [
+        ("heartbeat", 5),
+        ("event", 3),
+        ("event", 4),
+        ("event", 5),
+    ]
 
 
 def test_websocket_older_than_the_ring_gets_a_snapshot(tmp_path: Path) -> None:
@@ -94,18 +102,24 @@ def test_websocket_older_than_the_ring_gets_a_snapshot(tmp_path: Path) -> None:
     with TestClient(create_app(small, web_dir=tmp_path / "no-web")) as client:
         publish(client, 8)
         with client.websocket_connect("/ws/orders?since=1") as ws:
+            greeting = json.loads(ws.receive_text())
             snapshot = json.loads(ws.receive_text())
+    assert (greeting["type"], greeting["seq"]) == ("heartbeat", 8)
     assert snapshot["type"] == "snapshot"
     assert snapshot["seq"] == 8
     assert snapshot["data"]["oldest"] == 6
     assert [e["seq"] for e in snapshot["data"]["events"]] == [6, 7, 8]
 
 
-def test_websocket_gets_heartbeats(client: TestClient) -> None:
+def test_websocket_opens_with_a_heartbeat_then_keeps_sending_them(
+    client: TestClient, hub: Hub
+) -> None:
     publish(client, 1)
     with client.websocket_connect("/ws/orders") as ws:
-        beat = json.loads(ws.receive_text())
-    assert (beat["type"], beat["seq"], beat["data"]) == ("heartbeat", 1, {})
+        greeting = json.loads(ws.receive_text())
+        later = json.loads(ws.receive_text())  # heartbeat_s is 0.05 in this fixture
+    for beat in (greeting, later):
+        assert (beat["type"], beat["seq"], beat["data"]) == ("heartbeat", 1, {"epoch": hub.epoch})
 
 
 def test_disconnect_removes_the_subscriber(client: TestClient) -> None:

@@ -31,7 +31,7 @@ export function buildUrl({ url, channel, since = null, clientId = "" }) {
  * @returns {{start(): void, stop(): void, on(event: string, fn: Function): () => void, getState(): object}}
  *
  * Events: `event` (envelope), `snapshot` ({oldest, events}), `gap` ({from, to, reason}),
- * `reset` ({from, to}) and `status` ({state, attempt, delayMs, reason}).
+ * `reset` ({from, to, epoch}: the server restarted) and `status` ({state, attempt, delayMs, reason}).
  */
 export function createClient(options) {
   const {
@@ -54,6 +54,8 @@ export function createClient(options) {
   let last = null; // last seq seen; null until the first sequenced message
   let attempt = 0;
   let healthy = false; // true once the current connection has delivered a message
+  let epoch = null; // server instance id from heartbeats; a change means the server restarted
+  let resetOnThisConnection = false;
   let stopped = true;
   let retryTimer = null;
   let watchdog = null;
@@ -85,6 +87,7 @@ export function createClient(options) {
   function connect() {
     retryTimer = null;
     healthy = false;
+    resetOnThisConnection = false;
     setStatus("connecting");
     const ws = new WebSocketImpl(buildUrl({ url, channel, since: last, clientId }));
     socket = ws;
@@ -160,21 +163,40 @@ export function createClient(options) {
         break;
       case "snapshot":
         last = env.seq;
-        emit("snapshot", { oldest: env.data?.oldest ?? null, events: env.data?.events ?? [] });
+        // After a restart the ring belongs to a different server; treat it like any other replay.
+        if (!resetOnThisConnection) {
+          emit("snapshot", { oldest: env.data?.oldest ?? null, events: env.data?.events ?? [] });
+        }
         break;
       case "heartbeat":
-        // A heartbeat carries the channel's latest seq. Seeing it below ours means the
-        // server lost its history (restart); without this, every new event would look
-        // like a duplicate forever.
-        if (last !== null && env.seq < last) {
-          counters.resets += 1;
-          emit("reset", { from: last, to: env.seq });
-          last = env.seq;
-        }
+        handleHeartbeat(env);
         break;
       default:
         break; // unknown types are ignored, per the protocol
     }
+  }
+
+  // Every connection starts with a heartbeat carrying the channel's latest seq and the server's
+  // epoch. A new epoch means a restart: jump to the new server's seq so whatever it replays
+  // (seq <= that) reads as duplicates and live events continue from there. Servers that send
+  // no epoch are detected by a heartbeat seq behind ours; otherwise every new event would
+  // look like a duplicate forever.
+  function handleHeartbeat(env) {
+    const heartbeatEpoch = env.data?.epoch;
+    if (typeof heartbeatEpoch === "string") {
+      const restarted = epoch !== null && heartbeatEpoch !== epoch;
+      epoch = heartbeatEpoch;
+      if (restarted) resetTo(env.seq, heartbeatEpoch);
+    } else if (last !== null && env.seq < last) {
+      resetTo(env.seq, null);
+    }
+  }
+
+  function resetTo(seq, newEpoch) {
+    counters.resets += 1;
+    resetOnThisConnection = true;
+    emit("reset", { from: last, to: seq, epoch: newEpoch });
+    last = seq;
   }
 
   function handleEvent(env) {

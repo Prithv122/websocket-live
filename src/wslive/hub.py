@@ -17,6 +17,7 @@ import itertools
 import json
 import logging
 import re
+import secrets
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -96,7 +97,7 @@ class _Subscriber:
         self.hub._ws_bytes += len(text.encode())
 
     def _heartbeat_text(self) -> str:
-        return self.hub._envelope(self.channel.name, self.channel.seq, "heartbeat", {}).to_json()
+        return self.hub._heartbeat(self.channel.name, self.channel.seq).to_json()
 
 
 class _NaiveSubscriber(_Subscriber):
@@ -216,6 +217,8 @@ class Hub:
         self.queue_size = queue_size
         self.ring_size = ring_size
         self.heartbeat_s = heartbeat_s
+        # Changes on restart, so a reconnecting client can tell its saved seq is from another run.
+        self.epoch = secrets.token_hex(4)
         self._channels: dict[str, _Channel] = {}
         self._ids = itertools.count(1)
         self._ws_messages = 0
@@ -237,6 +240,9 @@ class Hub:
         return Envelope.model_validate(
             {"channel": channel, "seq": seq, "ts": iso_ms(time.time()), "type": type, "data": data}
         )
+
+    def _heartbeat(self, channel: str, seq: int) -> Envelope:
+        return self._envelope(channel, seq, "heartbeat", {"epoch": self.epoch})
 
     async def publish(self, channel: str, type: str, data: dict[str, Any]) -> Envelope:
         """Stamp, store and fan out one event. Only `event` can be published."""
@@ -266,18 +272,19 @@ class Hub:
     ) -> _Subscriber:
         ch = self._channel(channel)
         latest = ch.seq
-        backlog: list[Envelope] = []
+        # Always first: lets the client check the epoch before it trusts any replay.
+        backlog: list[Envelope] = [self._heartbeat(channel, latest)]
         if since is not None and since < latest:
             oldest = ch.ring[0].seq
             if oldest <= since + 1:
-                backlog = [e for e in ch.ring if e.seq > since]
+                backlog += [e for e in ch.ring if e.seq > since]
             else:
                 events = [e.model_dump() for e in ch.ring]
-                backlog = [
+                backlog.append(
                     self._envelope(
                         channel, latest, "snapshot", {"oldest": oldest, "events": events}
                     )
-                ]
+                )
         cls = _QueuedSubscriber if self.strategy == "queued" else _NaiveSubscriber
         sub = cls(self, ch, socket, client, latest, backlog)
         ch.subs.append(sub)

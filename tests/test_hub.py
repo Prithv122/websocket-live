@@ -27,7 +27,7 @@ class FakeSocket:
 
     def __init__(self, name: str = "sock", log: list[tuple[str, int]] | None = None) -> None:
         self.name = name
-        self.sent: list[dict[str, Any]] = []
+        self.received: list[dict[str, Any]] = []
         self.fail = False
         self._log = log
         self._open = asyncio.Event()
@@ -48,8 +48,8 @@ class FakeSocket:
         if self.fail:
             raise Disconnected
         message = json.loads(data)
-        self.sent.append(message)
-        if self._log is not None:
+        self.received.append(message)
+        if self._log is not None and message["type"] != "heartbeat":
             self._log.append((self.name, message["seq"]))
 
     async def receive_text(self) -> str:
@@ -57,6 +57,14 @@ class FakeSocket:
         if item is None:
             raise Disconnected
         return item
+
+    @property
+    def sent(self) -> list[dict[str, Any]]:
+        """Everything after the greeting heartbeat that opens every connection."""
+        if not self.received:
+            return []
+        assert self.received[0]["type"] == "heartbeat", "first message must be a heartbeat"
+        return self.received[1:]
 
     def of_type(self, type_: str) -> list[dict[str, Any]]:
         return [m for m in self.sent if m["type"] == type_]
@@ -87,6 +95,8 @@ async def connected(
     before = subscribers(hub, channel)
     task = asyncio.create_task(hub.serve_socket(sock, channel, since, sock.name))
     await wait_for(lambda: subscribers(hub, channel) > before)
+    if sock._open.is_set():
+        await wait_for(lambda: len(sock.received) >= 1)  # the greeting is out
     try:
         yield task
     finally:
@@ -101,9 +111,10 @@ async def publish_n(hub: Hub, first: int, last: int) -> None:
 
 
 def normalise(value: Any) -> Any:
-    """Replace every `ts` so a live envelope can be compared with a fixture."""
+    """Mask `ts` and `epoch`, which vary per run, so an envelope can be compared with a fixture."""
     if isinstance(value, dict):
-        return {k: "<ts>" if k == "ts" else normalise(v) for k, v in value.items()}
+        masked = {"ts": "<ts>", "epoch": "<epoch>"}
+        return {k: masked.get(k, normalise(v)) for k, v in value.items()}
     if isinstance(value, list):
         return [normalise(v) for v in value]
     return value
@@ -488,7 +499,10 @@ def test_idle_connections_get_heartbeats_carrying_the_latest_seq(strategy: str) 
         return sock
 
     sock = asyncio.run(scenario())
-    assert all(m["seq"] == 3 and m["data"] == {} for m in sock.of_type("heartbeat"))
+    hub_epoch = sock.received[0]["data"]["epoch"]
+    assert all(
+        m["seq"] == 3 and m["data"] == {"epoch": hub_epoch} for m in sock.of_type("heartbeat")
+    )
 
 
 @pytest.mark.parametrize("strategy", STRATEGIES)
@@ -562,9 +576,87 @@ def test_stats_report_strategy_subscribers_and_counters() -> None:
     (sub,) = stats["subscribers"]
     assert sub["channel"] == "orders"
     assert sub["client"] == "browser"
-    assert (sub["dropped"], sub["queued"], sub["sent"]) == (0, 0, 3)
-    assert stats["ws_messages_sent"] == 3
+    # three events plus the greeting heartbeat
+    assert (sub["dropped"], sub["queued"], sub["sent"]) == (0, 0, 4)
+    assert stats["ws_messages_sent"] == 4
     assert stats["ws_bytes_sent"] >= 3 * len(json.dumps(first, separators=(",", ":"))) - 30
     assert stats["http_poll_requests"] == 1
     assert stats["http_poll_bytes"] > 0
     assert stats["rss_bytes"] > 1_000_000
+
+
+# --- the greeting heartbeat and the server epoch ----------------------------------------------
+
+
+@pytest.mark.parametrize("strategy", STRATEGIES)
+@pytest.mark.parametrize("since", [None, 0, 3, 7, 99])
+def test_every_connection_opens_with_a_heartbeat_carrying_the_epoch(
+    strategy: str, since: int | None
+) -> None:
+    async def scenario() -> tuple[Hub, FakeSocket]:
+        hub = Hub(strategy, ring_size=4)  # since=0 and 3 reach past the ring or into it
+        await publish_n(hub, 1, 8)
+        sock = FakeSocket()
+        async with connected(hub, sock, since=since):
+            await asyncio.sleep(0.02)
+        return hub, sock
+
+    hub, sock = asyncio.run(scenario())
+    first = sock.received[0]
+    assert (first["type"], first["seq"]) == ("heartbeat", 8)  # latest at subscribe time
+    assert first["data"] == {"epoch": hub.epoch}
+    assert re.fullmatch(r"[0-9a-f]{8}", hub.epoch)
+    followers = {m["type"] for m in sock.received[1:]}
+    assert "heartbeat" not in followers  # heartbeat_s is 10 s: only the greeting so far
+
+
+def test_epoch_is_stable_within_a_hub_and_differs_between_hubs() -> None:
+    async def epoch_seen_on_connect(hub: Hub) -> str:
+        sock = FakeSocket()
+        async with connected(hub, sock):
+            pass
+        return sock.received[0]["data"]["epoch"]
+
+    async def scenario() -> tuple[list[str], str]:
+        hub, restarted = Hub(), Hub()
+        seen = [await epoch_seen_on_connect(hub) for _ in range(3)]
+        return seen, await epoch_seen_on_connect(restarted)
+
+    seen, other = asyncio.run(scenario())
+    assert len(set(seen)) == 1
+    assert other != seen[0]
+
+
+@pytest.mark.parametrize("strategy", STRATEGIES)
+def test_replay_after_the_greeting_has_no_hole_and_no_duplicate(strategy: str) -> None:
+    async def scenario() -> list[dict[str, Any]]:
+        hub = Hub(strategy, ring_size=50)
+        await publish_n(hub, 1, 6)
+        sock = FakeSocket()
+        sock.hold()  # the greeting stalls, so publishes land in the middle of the replay
+        async with connected(hub, sock, since=3):
+            await publish_n(hub, 7, 9)
+            sock.release()
+            await wait_for(lambda: len(sock.sent) == 6)
+            await publish_n(hub, 10, 10)
+            await wait_for(lambda: len(sock.sent) == 7)
+        return sock.received
+
+    received = asyncio.run(scenario())
+    assert (received[0]["type"], received[0]["seq"]) == ("heartbeat", 6)
+    assert [m["seq"] for m in received[1:]] == [4, 5, 6, 7, 8, 9, 10]
+    assert {m["type"] for m in received[1:]} == {"event"}
+
+
+@pytest.mark.parametrize("strategy", STRATEGIES)
+def test_the_greeting_precedes_a_snapshot(strategy: str) -> None:
+    async def scenario() -> FakeSocket:
+        hub = Hub(strategy, ring_size=2)
+        await publish_n(hub, 1, 5)
+        sock = FakeSocket()
+        async with connected(hub, sock, since=1):
+            await wait_for(lambda: len(sock.sent) == 1)
+        return sock
+
+    sock = asyncio.run(scenario())
+    assert [(m["type"], m["seq"]) for m in sock.received] == [("heartbeat", 5), ("snapshot", 5)]

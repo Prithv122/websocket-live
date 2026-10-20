@@ -127,6 +127,7 @@ export function connectionPanel({ store, conn }) {
     dd("Last seq", lastSeq === null ? "\u2013" : formatInt(lastSeq)) +
     dd("Events received", formatInt(store.total)) +
     dd("Reconnects", formatInt(counters.reconnects)) +
+    dd("Server restarts", formatInt(counters.resets)) +
     dd("Gaps", formatInt(counters.gaps)) +
     dd("Dropped by server", formatInt(counters.droppedByServer)) +
     dd("Duplicates ignored", formatInt(counters.duplicates)) +

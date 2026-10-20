@@ -23,8 +23,11 @@ Every message on a WebSocket is one JSON object:
 ### Types
 
 - **`event`** — one published item. `seq` is the new channel sequence number.
-- **`heartbeat`** — sent every 10 s on an idle or busy connection. `seq` is the channel's latest
-  event seq (it does not advance the sequence). `data` is `{}`.
+- **`heartbeat`** � the first message on every connection, then every 10 s on an idle or busy
+  connection. `seq` is the channel's latest event seq at that moment (it does not advance the
+  sequence). `data` is `{"epoch": "<id>"}`: a short random id the server picks when it starts, so
+  it changes on every restart. On connect the heartbeat comes before any replay, snapshot or
+  live event.
 - **`snapshot`** — sent once, right after connect, when the client asked to resume from a `since`
   that is older than the ring buffer. `seq` is the latest event seq included. `data` is
   `{"oldest": <seq of first event>, "events": [<event envelopes, oldest first>]}` holding the
@@ -33,6 +36,16 @@ Every message on a WebSocket is one JSON object:
   `data` is `{"from": a, "to": b, "reason": "slow_consumer"}` and `seq` is `b`, so the stream the
   client sees stays continuous: …, event(a-1), gap(a..b), event(b+1), …
   A client that needs the missing events reconnects with `since=a-1`.
+
+**Epoch.** A client remembers the last epoch it saw. If a heartbeat carries a different epoch
+(the server restarted, or this is the first connection), the `last` seq the client holds
+belongs to another run and means nothing. It sets `last` to that heartbeat's `seq` and carries on
+live; events replayed after it have `seq <= last` and are ignored as duplicates, so a client never
+shows events from a previous run or mistakes new ones for duplicates. With an unchanged epoch the
+heartbeat changes nothing.
+
+The `epoch` field is additive (heartbeat `data` used to be `{}`) and clients ignore fields they do
+not know, so the protocol version stays `1`.
 
 A client tracks the last seq it saw. For `event`, the next seq must be `last + 1`; anything else
 is a gap the client did not get a `gap` message for (a bug or a lost connection) and it should

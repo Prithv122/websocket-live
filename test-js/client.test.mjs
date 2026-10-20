@@ -104,11 +104,11 @@ test("heartbeats are liveness only", async () => {
   assert.equal(h.client.getState().lastSeq, 1);
 });
 
-test("a heartbeat behind our seq means the server restarted: reset instead of dropping everything", async () => {
+test("heartbeat without an epoch (older server): a seq behind ours still resets", async () => {
   const h = await connectAndOpen();
   for (const seq of [1, 2, 3]) h.WebSocketImpl.last.receive(envelope(seq));
   h.WebSocketImpl.last.receive(envelope(0, "heartbeat"));
-  assert.deepEqual(h.of("reset"), [{ from: 3, to: 0 }]);
+  assert.deepEqual(h.of("reset"), [{ from: 3, to: 0, epoch: null }]);
   h.WebSocketImpl.last.receive(envelope(1));
   assert.deepEqual(h.of("event").map((e) => e.seq), [1, 2, 3, 1]);
 });
@@ -233,4 +233,95 @@ test("on() returns an unsubscribe function", async () => {
   off();
   h.WebSocketImpl.last.receive(envelope(2));
   assert.deepEqual(seen, [1]);
+});
+
+const hb = (seq, epoch) => envelope(seq, "heartbeat", epoch === undefined ? {} : { epoch });
+
+test("the epoch is remembered from the first heartbeat and a repeat changes nothing", async () => {
+  const h = await connectAndOpen();
+  const ws = h.WebSocketImpl.last;
+  ws.receive(hb(0, "A"));
+  ws.receive(envelope(1));
+  ws.receive(envelope(2));
+  ws.receive(hb(2, "A"));
+  ws.receive(hb(1, "A")); // same epoch: seq alone never causes a reset
+  assert.equal(h.of("reset").length, 0);
+  assert.equal(h.client.getState().lastSeq, 2);
+  assert.deepEqual(h.of("event").map((e) => e.seq), [1, 2]);
+});
+
+test("same-epoch reconnect resumes with since and the replay is delivered as before", async () => {
+  const h = await connectAndOpen();
+  h.WebSocketImpl.last.receive(hb(0, "A"));
+  h.WebSocketImpl.last.receive(envelope(1));
+  h.WebSocketImpl.last.receive(envelope(2));
+  h.WebSocketImpl.last.serverClose();
+  h.clock.advance(500);
+  const second = h.WebSocketImpl.last;
+  assert.match(second.url, /since=2/);
+  second.open();
+  second.receive(hb(4, "A")); // first message: latest seq at subscribe time
+  second.receive(envelope(3));
+  second.receive(envelope(4));
+  second.receive(envelope(5));
+  assert.deepEqual(h.of("event").map((e) => e.seq), [1, 2, 3, 4, 5]);
+  assert.equal(h.of("reset").length, 0);
+});
+
+test("restart with the new server behind: reset, then its live events are accepted", async () => {
+  const h = await connectAndOpen();
+  h.WebSocketImpl.last.receive(hb(0, "A"));
+  for (let seq = 1; seq <= 50; seq += 1) h.WebSocketImpl.last.receive(envelope(seq));
+  h.WebSocketImpl.last.serverClose();
+  h.clock.advance(500);
+  const second = h.WebSocketImpl.last;
+  assert.match(second.url, /since=50/);
+  second.open();
+  second.receive(hb(3, "B")); // new instance, only 3 events so far
+  assert.deepEqual(h.of("reset"), [{ from: 50, to: 3, epoch: "B" }]);
+  assert.equal(h.client.getState().lastSeq, 3);
+  second.receive(envelope(4));
+  second.receive(envelope(5));
+  assert.deepEqual(h.of("event").slice(-2).map((e) => e.seq), [4, 5]);
+  assert.equal(h.client.getState().counters.resets, 1);
+});
+
+test("restart with the new server ahead: its replay is ignored as duplicates, live is accepted", async () => {
+  const h = await connectAndOpen();
+  h.WebSocketImpl.last.receive(hb(0, "A"));
+  for (let seq = 1; seq <= 10; seq += 1) h.WebSocketImpl.last.receive(envelope(seq));
+  h.WebSocketImpl.last.serverClose();
+  h.clock.advance(500);
+  const second = h.WebSocketImpl.last;
+  second.open();
+  second.receive(hb(30, "B")); // the new server is already at 30
+  assert.deepEqual(h.of("reset"), [{ from: 10, to: 30, epoch: "B" }]);
+  for (let seq = 11; seq <= 30; seq += 1) second.receive(envelope(seq)); // replay from its ring
+  assert.deepEqual(h.of("event").map((e) => e.seq), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(h.client.getState().counters.duplicates, 20);
+  second.receive(envelope(31));
+  assert.equal(h.of("event").at(-1).seq, 31);
+  assert.equal(h.of("gap").length, 0);
+});
+
+test("restart followed by a snapshot from the new server: not emitted, seq adopted", async () => {
+  const h = await connectAndOpen();
+  h.WebSocketImpl.last.receive(hb(0, "A"));
+  h.WebSocketImpl.last.receive(envelope(1));
+  h.WebSocketImpl.last.serverClose();
+  h.clock.advance(500);
+  const second = h.WebSocketImpl.last;
+  second.open();
+  second.receive(hb(500, "B"));
+  second.receive(envelope(500, "snapshot", { oldest: 400, events: [envelope(400), envelope(500)] }));
+  second.receive(envelope(501));
+  assert.equal(h.of("snapshot").length, 0);
+  assert.deepEqual(h.of("event").map((e) => e.seq), [1, 501]);
+});
+
+test("a first-ever heartbeat with an epoch is not a restart, even when events preceded it", async () => {
+  const h = await connectAndOpen();
+  h.WebSocketImpl.last.receive(envelope(1));
+  h.WebSocketImpl.last.receive(hb(1, "A"));
+  assert.equal(h.of("reset").length, 0);
 });
