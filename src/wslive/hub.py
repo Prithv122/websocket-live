@@ -107,21 +107,21 @@ class _NaiveSubscriber(_Subscriber):
         super().__init__(*args)
         # Orders the replay, live events and heartbeats that all write to this one socket.
         self._lock = asyncio.Lock()
-        self._replaying = bool(self.backlog)
-        self._pending: deque[str] = deque()
+        # Set once the greeting and replay are out. Until then `deliver` waits, which is the
+        # naive behaviour (the publisher is held up) and keeps memory bounded.
+        self._replayed = asyncio.Event()
 
-    @property
-    def queued(self) -> int:
-        return len(self._pending)
+    def close(self) -> None:
+        super().close()
+        self._replayed.set()  # release a publisher waiting on a replay that will never finish
 
     async def _send(self, text: str) -> None:
         async with self._lock:
             await self._write(text)
 
     async def deliver(self, text: str) -> None:
-        if self._replaying:
-            # Published while the replay is still going out; run() flushes it afterwards.
-            self._pending.append(text)
+        await self._replayed.wait()
+        if self.closed.is_set():
             return
         try:
             await self._send(text)
@@ -133,10 +133,7 @@ class _NaiveSubscriber(_Subscriber):
         try:
             for envelope in self.backlog:
                 await self._send(envelope.to_json())
-            while self._pending:
-                await self._send(self._pending.popleft())
-            # No await between the empty check above and this line, so nothing is left behind.
-            self._replaying = False
+            self._replayed.set()
             while True:
                 try:
                     await asyncio.wait_for(self.closed.wait(), self.hub.heartbeat_s)

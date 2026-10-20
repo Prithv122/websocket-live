@@ -23,7 +23,7 @@ Every message on a WebSocket is one JSON object:
 ### Types
 
 - **`event`** — one published item. `seq` is the new channel sequence number.
-- **`heartbeat`** � the first message on every connection, then every 10 s on an idle or busy
+- **`heartbeat`** — the first message on every connection, then every 10 s on an idle or busy
   connection. `seq` is the channel's latest event seq at that moment (it does not advance the
   sequence). `data` is `{"epoch": "<id>"}`: a short random id the server picks when it starts, so
   it changes on every restart. On connect the heartbeat comes before any replay, snapshot or

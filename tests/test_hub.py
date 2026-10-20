@@ -271,9 +271,11 @@ def test_events_published_during_a_replay_are_neither_lost_nor_repeated(strategy
         sock = FakeSocket()
         sock.hold()  # the replay stalls on its first message
         async with connected(hub, sock, since=2):
-            await publish_n(hub, 6, 8)  # lands in the middle of the replay
+            during = asyncio.create_task(publish_n(hub, 6, 8))  # lands mid-replay
+            await asyncio.sleep(0.02)
             assert sock.sent == []
             sock.release()
+            await asyncio.wait_for(during, 3)
             await wait_for(lambda: len(sock.sent) == 6)
             await publish_n(hub, 9, 9)
             await wait_for(lambda: len(sock.sent) == 7)
@@ -635,8 +637,10 @@ def test_replay_after_the_greeting_has_no_hole_and_no_duplicate(strategy: str) -
         sock = FakeSocket()
         sock.hold()  # the greeting stalls, so publishes land in the middle of the replay
         async with connected(hub, sock, since=3):
-            await publish_n(hub, 7, 9)
+            during = asyncio.create_task(publish_n(hub, 7, 9))
+            await asyncio.sleep(0.02)
             sock.release()
+            await asyncio.wait_for(during, 3)
             await wait_for(lambda: len(sock.sent) == 6)
             await publish_n(hub, 10, 10)
             await wait_for(lambda: len(sock.sent) == 7)
@@ -660,3 +664,44 @@ def test_the_greeting_precedes_a_snapshot(strategy: str) -> None:
 
     sock = asyncio.run(scenario())
     assert [(m["type"], m["seq"]) for m in sock.received] == [("heartbeat", 5), ("snapshot", 5)]
+
+
+def test_naive_publish_waits_for_a_slow_replay_instead_of_buffering() -> None:
+    async def scenario() -> tuple[list[bool], list[int], list[int]]:
+        hub = Hub("naive", ring_size=50)
+        await publish_n(hub, 1, 5)
+        sock = FakeSocket()
+        sock.hold()  # the replay stalls on the greeting
+        async with connected(hub, sock, since=0):
+            publishers = [asyncio.create_task(publish_n(hub, n, n)) for n in range(6, 11)]
+            await asyncio.sleep(0.05)
+            still_waiting = [not t.done() for t in publishers]
+            buffered = [s["queued"] for s in hub.stats()["subscribers"]]
+            sock.release()
+            await asyncio.wait_for(asyncio.gather(*publishers), 3)
+            await wait_for(lambda: len(sock.sent) == 10)
+        return still_waiting, buffered, sock.seqs
+
+    still_waiting, buffered, seqs = asyncio.run(scenario())
+    assert still_waiting == [True] * 5  # the publisher is held up, as naive means
+    assert buffered == [0]  # and nothing piled up in memory
+    assert seqs == list(range(1, 11))  # replay then live, in order, no hole or duplicate
+
+
+def test_naive_publish_does_not_hang_if_the_replaying_client_leaves() -> None:
+    async def scenario() -> list[int]:
+        hub = Hub("naive", ring_size=50)
+        await publish_n(hub, 1, 3)
+        gone, other = FakeSocket("gone"), FakeSocket("other")
+        gone.hold()
+        async with connected(hub, other):
+            async with connected(hub, gone, since=0):
+                publishing = asyncio.create_task(publish_n(hub, 4, 4))
+                await asyncio.sleep(0.02)
+                assert not publishing.done()
+                gone.disconnect()
+                await asyncio.wait_for(publishing, 3)
+            await wait_for(lambda: other.seqs == [4])
+        return other.seqs
+
+    assert asyncio.run(scenario()) == [4]
