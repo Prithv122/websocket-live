@@ -16,9 +16,9 @@ Everything here is a property of this simulator on one machine, not of productio
 ## Metric
 
 **Delivery latency of one message to one healthy client** = the time the client's receive
-returned (`time.time()` taken before the message is parsed) minus `t_sched`, the time the feed was
-scheduled to publish that event. Client and server share one machine and one clock, so there is no
-skew to correct.
+returned (`time.time()` taken when the consumer coroutine gets the frame, before the JSON is
+parsed) minus `t_sched`, the time the feed was scheduled to publish that event. Client and server
+share one machine and one clock, so there is no skew to correct.
 
 - **Why the schedule and not the server's stamp.** The envelope `ts` is written when the server
   builds the message. A publisher stuck behind a stalled socket builds it late, and a latency
@@ -59,7 +59,9 @@ sampled every 0.5 s.
 How many messages are expected: the feed publishes on a fixed grid, so after the run the harness
 reads the server's ring buffer (sized to hold the whole run), takes one event as the grid
 reference, and counts the grid slots whose scheduled time lies inside the window. That count does
-not shrink when the publisher falls behind.
+not shrink when the publisher falls behind. If the published events are not on that grid the run is
+a harness error: there is no fallback that counts only what was published, because that would let a
+stuck publisher shrink its own denominator.
 
 ## Primary hypothesis and the mechanical verdict
 
@@ -76,7 +78,7 @@ Primary cell: **N = 200, 10% stalled (20 clients)**.
 | `queued` passes, `naive` fails | **SUPPORTED** |
 | `queued` fails | **NOT SUPPORTED** |
 | both pass | go to the escalation ladder (below) |
-| an arm has fewer than a majority of valid runs (under 2 of 3) | **INVALID** |
+| an arm has fewer than a majority of valid runs (under 2 of 3); see the validity control and Amendment 1 | **INVALID** |
 | fewer than 3 runs for an arm in a stage that has to be judged | **INCOMPLETE** |
 
 `wslive report` computes this from the committed sweep lines and prints it; nothing is judged by
@@ -85,16 +87,46 @@ delivery ratio, gaps, drops of stalled clients, server memory).
 
 ## Validity control
 
-The load generator runs in several processes. In each, a 10 ms ticker records how late it wakes.
-If any worker's p99 lag exceeds **20 ms**, the load generator itself was stalling, the receive
-timestamps are late, and the run is flagged **invalid** and excluded from the medians. Invalid runs
-are listed in the report, not hidden and not silently re-run. An arm is judged only when a majority of
-its runs in the judged stage are valid (2 of 3); otherwise the verdict is **INVALID**. On Windows the timer granularity puts
-a floor under this lag, which is why the limit is stated in advance as an absolute number.
+The load generator runs in several processes. In each, a 10 ms ticker records how late it wakes,
+from the start of the window to the end of the drain (latencies are still recorded during the
+drain). If any worker's p99 lag exceeds **20 ms**, the load generator itself was stalling, the
+receive timestamps are late, and the run is flagged **invalid** and excluded from the medians.
+Invalid runs are listed in the report, not hidden and not silently re-run. An arm is judged only
+when a majority of its runs in the judged stage are valid (2 of 3); otherwise the verdict is
+**INVALID**.
 
-## Escalation ladder (only if `naive` passes the primary cell)
+**Measured floors on this machine.** Windows timer granularity makes `asyncio.sleep(0.01)` take
+about 15.5 ms, so the loop-lag p50 sits around 5 ms even when idle, and the latency from the
+schedule has a floor of up to about 15.6 ms in both arms (the feed's own sleep overshoots by the
+same granularity). The 20 ms lag limit and the 100 ms budget were set knowing this.
 
-A `naive` that never degrades on this machine would be an uninteresting experiment, so the
+## Amendment 1 (2026-10-20, before any timing run)
+
+Run integrity. No owner number changes. A run is **INVALID**, excluded from the medians exactly like
+a loop-lag failure and listed in the report with its reasons (`invalid_reasons` on the run file and
+on the sweep line), if any of these holds:
+
+1. the number of stalled handshakes that completed differs from the intended stalled count;
+2. the server's `/stats`, read at the end of the window before anything is closed, lists fewer
+   `stalled-*` subscribers than intended;
+3. any healthy client failed to connect, closed early, or did not report;
+4. the run ended in a harness error (the sweep records it as a line with `status: "harness_error"`
+   and the error text; it counts as an invalid run for that cell and repeat and is not re-run on
+   resume).
+
+Why: a run with fewer stalled clients than intended would judge `naive` under easier conditions than
+the plan names, which can only help `naive` pass. Healthy clients that failed to connect would
+become infinite latencies and missing messages for reasons unrelated to fan-out, and would punish
+whichever arm they happened to land in.
+
+The sweep also protects the attribution of its results: it refuses to start on a tree with
+uncommitted changes (changes under `results/` do not count), and refuses to resume when the recorded
+runs were made at another commit, on a dirty tree, or with another `--procs`.
+
+## Escalation ladder (only if both arms pass the primary cell)
+
+A step is run only if both arms passed the previous stage; if `queued` does not pass, the verdict is
+already **NOT SUPPORTED** and the ladder ends. A `naive` that never degrades on this machine would be an uninteresting experiment, so the
 conditions that make a stalled socket bite sooner are fixed here, in advance, and tried in order:
 
 1. `pad_bytes` 4096, default receive buffer.
