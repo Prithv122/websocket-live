@@ -1,0 +1,39 @@
+# Pre-registered evaluation plan for the slow-consumer question (see EVAL_PLAN.md).
+# Decided by the owner on 2026-10-20 and frozen before any timing run. Changing any value
+# changes the plan hash: the sweep and the report refuse to mix runs from different hashes.
+# A value of "TBD" anywhere makes `wslive sweep` and `wslive report` refuse to run.
+
+[matrix]
+arms = ["naive", "queued"]
+n = [50, 200, 500]
+stalled_shares = [0.0, 0.1, 0.3]
+repeats = 3
+order_seed = 20261020          # shuffles run order within a stage
+
+[run]
+rate = 20                      # feed events per second
+seconds = 60                   # measurement window
+warmup = 3
+drain = 2                      # late deliveries accepted after the window
+feed_seed = 7
+queue_size = 64                # `queued` strategy only
+pad_bytes = 0
+rcvbuf = 0                     # SO_RCVBUF of the STALLED clients only; 0 = OS default
+
+[primary]
+n = 200
+stalled_share = 0.1
+p95_budget_ms = 100            # p95 from the scheduled publish time
+min_delivery_ratio = 0.99      # healthy clients
+loop_lag_limit_ms = 20         # run invalid if any worker's loop-lag p99 exceeds this
+
+# Escalation ladder: used only if naive passes the primary cell. Each step re-runs the primary
+# cell only (both arms, `repeats` runs each). Tried in order; stop at the first step where naive
+# fails. rcvbuf = 0 means the OS default.
+[[escalation]]
+pad_bytes = 4096
+rcvbuf = 0
+
+[[escalation]]
+pad_bytes = 4096
+rcvbuf = 4096
