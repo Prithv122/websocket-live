@@ -62,6 +62,32 @@ Set before any timing run; see `EVAL_PLAN.md` and `eval_plan.toml`.
   0 gaps and 0 duplicates. Found: at narrow widths the bar chart's SVG scales its 12 px labels down
   to about 7 px.
 
+### 2026-10-20 — independent review before any measurement
+
+A fresh-context review found 12 issues; all fixed except the dashboard keeping since-page-load
+totals across a server restart (deliberate: they describe what this browser received).
+
+- **The "stalled" client was reading.** `asyncio.open_connection` attached a StreamReader that
+  pulled about 131 KB into user space before pausing, even with a 4 KB `SO_RCVBUF`. At the default
+  payload naive would have frozen only after about 99 s, longer than a run: a false null. Fixed by
+  never wrapping the socket in a transport (byte-by-byte handshake); `test_rawws.py` peeks the
+  kernel buffer to prove every later byte is still there. Re-probe: a naive publisher now freezes
+  after about 265 KB at pad 0 (about 66 s at 20 events/s, so close to one run's length) and about
+  146 KB with a 4 KB receive buffer. That remainder is kernel and server-side buffering, the same
+  for both arms.
+- **Amendment 1 to the plan:** run integrity (all stalled clients connected and still subscribed at
+  window end, no healthy connect failures), harness errors recorded instead of silently re-run,
+  sweep refuses to resume across commits, dirty trees or a different worker count, no fallback
+  that could shrink the denominator, ladder only when both arms pass.
+- Naive no longer buffers during a resuming client's replay (the publish waits, as naive means).
+
+### 2026-10-20 — local CI replay (hosted Actions unavailable until about 2026-11-02)
+
+Fresh clone of `683e82e`, fresh `uv sync --all-groups --locked` and `npm ci`, Windows 11, Python
+3.13.9, Node 24.19 (the workflow pins Node 22 on Ubuntu), `--basetemp` in a scratch directory:
+ruff check and format clean; pytest 205 passed, coverage 90%; `wslive bench --n 3 --stalled 1
+--seconds 3 --procs 1` wrote a result file; `npm test` 64 passed; `html-validate` clean.
+
 ---
 
 ## Rejected approaches
