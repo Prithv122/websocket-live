@@ -332,7 +332,7 @@ async def _worker(spec: WorkerSpec, conn: Connection) -> None:
     _, ws, seconds, drain = await recv()
     win.set(ws, seconds)
     lags: list[float] = []
-    probe = asyncio.create_task(_lag_probe(ws, ws + seconds, lags))
+    probe = asyncio.create_task(_lag_probe(ws, ws + seconds + drain, lags))
     await sleep_until(ws + seconds + drain)
     for task in (*tasks, probe):
         task.cancel()

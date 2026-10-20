@@ -113,7 +113,7 @@ def grid_ring(first: int, last: int, t_ref: float = 100.0) -> list[tuple[int, fl
 
 def test_expected_window_from_a_complete_ring() -> None:
     e = runner.expected_window(grid_ring(1, 150), RATE, 102.0, 3.0)
-    assert (e.method, e.scheduled, e.published) == ("grid", 60, 60)
+    assert (e.scheduled, e.published) == (60, 60)
     assert e.grid_max_error_s == 0.0
 
 
@@ -125,16 +125,13 @@ def test_expected_window_counts_events_the_publisher_never_published() -> None:
 
 def test_expected_window_works_when_the_ring_has_wrapped() -> None:
     e = runner.expected_window(grid_ring(30, 150), RATE, 102.0, 3.0)
-    assert (e.method, e.scheduled, e.seq_range.start) == ("grid", 60, 41)
+    assert (e.scheduled, e.seq_range.start) == (60, 41)
 
 
-def test_expected_window_falls_back_to_the_ring_when_events_are_off_the_grid() -> None:
+def test_events_off_the_grid_are_a_harness_error_not_a_smaller_denominator() -> None:
     jitter = [(s, t + (0.02 if s % 2 else 0.0)) for s, t in grid_ring(1, 150)]
-    e = runner.expected_window(jitter, RATE, 102.0, 3.0)
-    assert e.method == "ring"
-    assert 59 <= e.scheduled <= 61
-    with pytest.raises(runner.HarnessError, match="misses the window"):
-        runner.expected_window(jitter[100:], RATE, 90.0, 3.0)
+    with pytest.raises(runner.HarnessError, match="off the schedule grid"):
+        runner.expected_window(jitter, RATE, 102.0, 3.0)
 
 
 def test_expected_window_failures() -> None:
@@ -235,7 +232,8 @@ def synthetic_analysis(missing_for_second: int = 0) -> tuple[runner.BenchConfig,
         "http_poll_bytes": 0,
         "subscribers": [],
     }
-    end = {**snap, "ws_messages_sent": 180, "ws_bytes_sent": 36_000}
+    end_subs = [{"id": 2, "client": "stalled-0", "dropped": 5, "queued": 64}]
+    end = {**snap, "ws_messages_sent": 180, "ws_bytes_sent": 36_000, "subscribers": end_subs}
     final = {
         **end,
         "rss_bytes": 50_000_000,
@@ -253,7 +251,16 @@ def synthetic_analysis(missing_for_second: int = 0) -> tuple[runner.BenchConfig,
 
 def test_analyze_run_schema_and_values() -> None:
     _, a = synthetic_analysis()
-    assert set(a) == {"window", "healthy", "stalled", "server", "traffic", "loadgen"}
+    assert set(a) == {
+        "invalid_reasons",
+        "window",
+        "healthy",
+        "stalled",
+        "server",
+        "traffic",
+        "loadgen",
+    }
+    assert a["invalid_reasons"] == []
     h = a["healthy"]
     assert (h["expected_total"], h["received_total"], h["delivery_ratio"]) == (120, 120, 1.0)
     assert h["latency_sched"]["p95_ms"] == 10.0
@@ -265,9 +272,49 @@ def test_analyze_run_schema_and_values() -> None:
     assert a["server"]["rss_final_bytes"] == 51_000_000
     assert a["traffic"]["server_ws_messages_per_s"] == 60.0
     assert a["loadgen"]["loop_lag_p99_ms_max"] == 8.0
-    assert a["window"]["method"] == "grid"
     assert a["window"]["scheduled"] == 60
     json.dumps(stats.json_safe(a), allow_nan=False)  # strict JSON
+
+
+def test_integrity_reasons_for_missing_stalled_and_failed_healthy_clients() -> None:
+    cfg = runner.BenchConfig(n=4, stalled=2)
+    good = [record("healthy-0", [1]), record("healthy-1", [1])]
+    listed = {"subscribers": [{"client": "stalled-0"}, {"client": "stalled-1"}, {"client": "x"}]}
+    assert runner.integrity_reasons(cfg, good, 2, [], listed) == []
+
+    reasons = runner.integrity_reasons(cfg, good, 1, ["ConnectionError: refused"], listed)
+    assert reasons == ["1 of 2 stalled handshakes completed (ConnectionError: refused)"]
+
+    one_listed = {"subscribers": [{"client": "stalled-0"}, {"client": "healthy-0"}]}
+    reasons = runner.integrity_reasons(cfg, good, 2, [], one_listed)
+    assert reasons == ["server lists 1 of 2 stalled subscribers at window end"]
+
+    bad = [record("healthy-0", [1]), record("healthy-1", [1])]
+    bad[0].connected = False
+    bad[1].closed_early = True
+    reasons = runner.integrity_reasons(cfg, bad, 2, [], listed)
+    assert reasons == ["1 healthy clients failed to connect", "1 healthy clients closed early"]
+
+    reasons = runner.integrity_reasons(cfg, good[:1], 2, [], listed)
+    assert reasons == ["1 of 2 healthy clients reported"]
+
+
+def test_analyze_run_records_why_a_run_is_invalid() -> None:
+    cfg, _ = synthetic_analysis()
+    slots = interleave_slots(3, 1)
+    expected = runner.expected_window(grid_ring(1, 90), RATE, 101.0, 3.0)
+    recs = [record(s.label, list(expected.seq_range)) for s in slots if s.kind == "healthy"]
+    recs[0].closed_early = True
+    results = [WorkerResult(0, recs, {"samples": 1, "p50": 1.0, "p99": 2.0, "max": 3.0})]
+    snap = {"subscribers": []}
+    snapshots = {"start": snap, "end": snap, "final": snap}
+    timing = {"ws": 101.0, "window_s": 3.0}
+    out = runner.analyze_run(cfg, slots, results, expected, snapshots, timing, [1], 0, ["boom"])
+    assert out["invalid_reasons"] == [
+        "0 of 1 stalled handshakes completed (boom)",
+        "server lists 0 of 1 stalled subscribers at window end",
+        "1 healthy clients closed early",
+    ]
 
 
 def test_missing_messages_push_p95_to_infinity_and_to_null_in_json() -> None:

@@ -191,9 +191,25 @@ def _inf(x: float | None) -> float:
     return math.inf if x is None else x
 
 
-def is_valid(line: dict[str, Any], plan: Plan) -> bool:
+def is_harness_error(line: dict[str, Any]) -> bool:
+    return line.get("status") == "harness_error"
+
+
+def invalid_reasons(line: dict[str, Any], plan: Plan) -> list[str]:
+    """Every reason a run is excluded: its recorded integrity failures plus loop lag."""
+    reasons = list(line.get("invalid_reasons") or [])
+    if is_harness_error(line):
+        return reasons or ["harness error"]
     lag = line["metrics"].get("loop_lag_p99_ms")
-    return lag is not None and lag <= plan.loop_lag_limit_ms
+    if lag is None:
+        reasons.append("no loop-lag samples")
+    elif lag > plan.loop_lag_limit_ms:
+        reasons.append(f"loop-lag p99 {lag:.1f} ms exceeds {plan.loop_lag_limit_ms:g} ms")
+    return reasons
+
+
+def is_valid(line: dict[str, Any], plan: Plan) -> bool:
+    return not invalid_reasons(line, plan)
 
 
 @dataclass(frozen=True)
@@ -305,7 +321,10 @@ def _row_stats(runs: list[dict[str, Any]], plan: Plan) -> dict[str, Any]:
         "gaps": med("gaps_seen"),
         "dropped": med("stalled_dropped_total"),
         "rss": med("rss_max_bytes") / 2**20,
-        "lag": max((_inf(r["metrics"]["loop_lag_p99_ms"]) for r in runs), default=math.nan),
+        "lag": max(
+            (_inf(r["metrics"]["loop_lag_p99_ms"]) for r in runs if r["metrics"]),
+            default=math.nan,
+        ),
     }
 
 
@@ -325,7 +344,9 @@ def render_report(lines: list[dict[str, Any]], plan: Plan) -> str:
         f"scheduled publish time is at most {plan.p95_budget_ms:g} ms and the median delivery "
         f"ratio is at least {plan.min_delivery_ratio:g}. Missing messages count as infinite "
         f"latency. A run is invalid when a load-generator worker's event-loop lag p99 exceeds "
-        f"{plan.loop_lag_limit_ms:g} ms; invalid runs are excluded from the medians.",
+        f"{plan.loop_lag_limit_ms:g} ms, when it did not have the stalled and healthy clients it "
+        "intended, or when it ended in a harness error; invalid runs are excluded from the "
+        "medians.",
         "",
         "## Primary cell",
         "",
@@ -393,15 +414,14 @@ def render_report(lines: list[dict[str, Any]], plan: Plan) -> str:
     out += ["", "## Invalid runs", ""]
     if invalid:
         out += [
-            "| stage | arm | n | stalled | repeat | worst lag p99 ms | file |",
+            "| stage | arm | n | stalled | repeat | reasons | file |",
             "|---|---|---|---|---|---|---|",
         ]
         for ln in invalid:
-            lag = ln["metrics"].get("loop_lag_p99_ms")
+            reasons = "; ".join(invalid_reasons(ln, plan)).replace("|", "/").replace(chr(10), " ")
             out.append(
                 f"| {ln['stage']} | {ln['strategy']} | {ln['n']} | {ln['stalled']} | "
-                f"{ln['repeat']} | "
-                f"{'n/a' if lag is None else f'{lag:.1f}'} | {ln.get('run_file', '')} |"
+                f"{ln['repeat']} | {reasons} | {ln.get('run_file', '')} |"
             )
     else:
         out.append("None.")

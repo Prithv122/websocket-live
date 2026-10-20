@@ -2,13 +2,15 @@
 
 import argparse
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from wslive.bench import report, sweep
+from wslive.bench import report, runner, sweep
 from wslive.bench.runner import stalled_count
 
+SHA = "abcdef0123456789"
 PLAN_FILE = Path(__file__).resolve().parents[1] / "eval_plan.toml"
 
 
@@ -294,30 +296,44 @@ def test_cell_config_applies_the_stage_conditions(plan: report.Plan, tmp_path: P
 class FakeRunner:
     """Stands in for run_bench: naive degrades only when the stage says so."""
 
-    def __init__(self, tmp_path: Path, plan: report.Plan, naive_breaks_at: str | None) -> None:
+    def __init__(
+        self,
+        tmp_path: Path,
+        plan: report.Plan,
+        naive_breaks_at: str | None,
+        *,
+        queued_p95: float = 20.0,
+        fail_on: Callable[[object], bool] | None = None,
+        reasons: list[str] | None = None,
+    ) -> None:
         self.tmp_path, self.plan, self.breaks_at = tmp_path, plan, naive_breaks_at
+        self.queued_p95, self.fail_on, self.reasons = queued_p95, fail_on, reasons or []
         self.calls: list[tuple[str, int, int, int | None]] = []
 
     def __call__(self, cfg):
         self.calls.append((cfg.strategy, cfg.n, cfg.stalled, cfg.rcvbuf))
+        if self.fail_on is not None and self.fail_on(cfg):
+            raise runner.HarnessError("server not healthy after 30 s:\nlog line two")
         # Identify the stage from the conditions the plan gave this cell.
         stage = {(0, None): "matrix", (4096, None): "ladder-1", (4096, 4096): "ladder-2"}[
             (cfg.pad_bytes, cfg.rcvbuf)
         ]
         broken = cfg.strategy == "naive" and stage == self.breaks_at and cfg.stalled > 0
-        p95 = 900.0 if broken else 20.0
+        p95 = 900.0 if broken else self.queued_p95 if cfg.strategy == "queued" else 20.0
         path = self.tmp_path / "runs" / f"{len(self.calls)}.json"
         path.parent.mkdir(exist_ok=True)
         path.write_text("{}")
         result = {
             "started_utc": "2026-10-20T00:00:00+00:00",
-            "environment": {"platform": "fake"},
+            "environment": {"platform": "fake", "git_sha": SHA, "git_dirty": False},
+            "invalid_reasons": self.reasons,
             "config": {
                 "rate": 20,
                 "seconds": 60,
                 "warmup": 3,
                 "drain": 2,
                 "queue_size": 64,
+                "procs": 1,
                 "procs_used": 1,
             },
             "healthy": {
@@ -403,6 +419,14 @@ def sweep_args(tmp_path: Path, plan_path: Path = PLAN_FILE, *, dry_run: bool = F
     )
 
 
+@pytest.fixture
+def clean_tree(monkeypatch):
+    """The sweep sees a clean checkout at SHA; tests change `state` to simulate otherwise."""
+    state = {"value": (SHA, False)}
+    monkeypatch.setattr(sweep, "git_state", lambda: state["value"])
+    return state
+
+
 def test_sweep_refuses_a_plan_with_placeholders(tmp_path: Path, capsys) -> None:
     tbd = edited_plan(tmp_path, "seconds = 60", 'seconds = "TBD"')
     assert sweep.sweep_main(sweep_args(tmp_path / "out", tbd)) == 2
@@ -428,5 +452,178 @@ def test_dry_run_lists_cells_and_runs_nothing(tmp_path: Path, plan: report.Plan,
     out = capsys.readouterr().out
     assert out.count("pending") == 53 + 6 + 6
     assert out.count("done") == 1
-    assert "only while naive passes" in out
+    assert "only while both arms pass" in out
     assert "matrix: 54 cells" in out
+
+
+# --- Amendment 1: run integrity, harness errors, resume safety, escalation ---------------------
+
+
+def test_recorded_integrity_failures_make_a_run_invalid(plan: report.Plan) -> None:
+    ok = make_line(plan, "matrix", "naive", 10.0)
+    assert report.invalid_reasons(ok, plan) == []
+    bad = make_line(plan, "matrix", "naive", 10.0)
+    bad["invalid_reasons"] = ["1 of 20 stalled handshakes completed"]
+    assert not report.is_valid(bad, plan)
+    both = make_line(plan, "matrix", "naive", 10.0, lag=30.0)
+    both["invalid_reasons"] = ["2 healthy clients closed early"]
+    assert report.invalid_reasons(both, plan) == [
+        "2 healthy clients closed early",
+        "loop-lag p99 30.0 ms exceeds 20 ms",
+    ]
+
+
+def test_invalid_runs_are_listed_with_their_reasons(tmp_path: Path, plan: report.Plan) -> None:
+    lines = stage_lines(plan, "matrix", naive=900.0, queued=40.0)
+    lines[0]["invalid_reasons"] = ["1 of 20 stalled handshakes completed"]
+    lines[1]["status"] = "harness_error"
+    lines[1]["metrics"] = {}
+    lines[1]["invalid_reasons"] = ["harness error: server not healthy"]
+    write_sweep(tmp_path, lines)
+    assert report.report_main(args_for(tmp_path)) == 0
+    text = (tmp_path / "REPORT.md").read_text(encoding="utf-8")
+    assert "| reasons |" in text
+    assert "1 of 20 stalled handshakes completed" in text
+    assert "harness error: server not healthy" in text
+    assert report.primary_verdict(lines, plan).label == "INVALID"  # naive has 1 of 3 valid
+
+
+def test_the_sweep_records_a_harness_error_and_never_reruns_it(
+    tmp_path: Path, plan: report.Plan, capsys
+) -> None:
+    first_cell = sweep.stage_cells(plan, "matrix")[0]
+
+    def fails_first_cell(cfg) -> bool:
+        return (cfg.strategy, cfg.n, cfg.stalled, cfg.repeat_index) == (
+            first_cell.strategy,
+            first_cell.n,
+            first_cell.stalled,
+            first_cell.repeat,
+        )
+
+    fake = FakeRunner(tmp_path, plan, "matrix", fail_on=fails_first_cell)
+    state = {"ran": False, "errors": 0}
+    lines = sweep.run_sweep(plan, tmp_path, run_fn=fake, log=lambda _: None, state=state)
+    assert state["errors"] == 1
+    assert len(lines) == 54  # the error took the place of one result
+    errors = [ln for ln in lines if ln["status"] == "harness_error"]
+    assert len(errors) == 1
+    err = errors[0]
+    assert (err["strategy"], err["n"], err["stalled"], err["repeat"]) == (
+        first_cell.strategy,
+        first_cell.n,
+        first_cell.stalled,
+        first_cell.repeat,
+    )
+    assert "log line two" in err["error"]  # the full text
+    assert err["invalid_reasons"] == ["harness error: server not healthy after 30 s:"]
+    assert err["metrics"] == {}
+    assert not report.is_valid(err, plan)
+    assert "recorded as an invalid run" in capsys.readouterr().err
+    on_disk = report.read_sweep(tmp_path / "sweep.jsonl")
+    assert sum(ln["status"] == "harness_error" for ln in on_disk) == 1
+
+    again = FakeRunner(tmp_path, plan, "matrix")
+    sweep.run_sweep(plan, tmp_path, run_fn=again, log=lambda _: None)
+    assert again.calls == []  # not re-run on resume
+
+
+def test_sweep_main_exits_1_when_runs_ended_in_harness_errors(
+    tmp_path: Path, plan: report.Plan, clean_tree, monkeypatch, capsys
+) -> None:
+    fake = FakeRunner(
+        tmp_path, plan, "matrix", fail_on=lambda c: (c.n, c.stalled, c.repeat_index) == (50, 0, 0)
+    )
+    real = sweep.run_sweep
+    monkeypatch.setattr(
+        sweep, "run_sweep", lambda p, out, **kw: real(p, out, run_fn=fake, log=lambda _: None, **kw)
+    )
+    assert sweep.sweep_main(sweep_args(tmp_path)) == 1
+    assert "2 run(s) ended in harness errors" in capsys.readouterr().err
+
+
+def test_sweep_refuses_to_start_on_a_dirty_tree(tmp_path: Path, clean_tree, capsys) -> None:
+    clean_tree["value"] = (SHA, True)
+    assert sweep.sweep_main(sweep_args(tmp_path)) == 2
+    assert "uncommitted changes" in capsys.readouterr().err
+    assert not (tmp_path / "sweep.jsonl").exists()
+    clean_tree["value"] = (None, None)
+    assert sweep.sweep_main(sweep_args(tmp_path)) == 2
+    assert "cannot read the git state" in capsys.readouterr().err
+    # A dry run only lists cells and is allowed anywhere.
+    assert sweep.sweep_main(sweep_args(tmp_path, dry_run=True)) == 0
+
+
+def recorded(plan: report.Plan, **env_or_config) -> dict:
+    line = make_line(plan, "matrix", "naive", 10.0, n=50, stalled=0)
+    line["config"] = {"procs": env_or_config.pop("procs", 1)}
+    line["env"]["git_sha"] = env_or_config.pop("git_sha", SHA)
+    line["env"]["git_dirty"] = env_or_config.pop("git_dirty", False)
+    return line
+
+
+def test_sweep_refuses_to_resume_runs_from_another_commit(
+    tmp_path: Path, plan: report.Plan, clean_tree, capsys
+) -> None:
+    write_sweep(tmp_path, [recorded(plan, git_sha="1111111111aaaa")])
+    assert sweep.sweep_main(sweep_args(tmp_path)) == 2
+    err = capsys.readouterr().err
+    assert "1111111111" in err
+    assert "abcdef0123" in err
+
+
+def test_sweep_refuses_to_resume_runs_made_on_a_dirty_tree(
+    tmp_path: Path, plan: report.Plan, clean_tree, capsys
+) -> None:
+    write_sweep(tmp_path, [recorded(plan, git_dirty=True)])
+    assert sweep.sweep_main(sweep_args(tmp_path)) == 2
+    assert "dirty tree" in capsys.readouterr().err
+
+
+def test_sweep_refuses_to_resume_runs_made_with_another_procs(
+    tmp_path: Path, plan: report.Plan, clean_tree, capsys
+) -> None:
+    write_sweep(tmp_path, [recorded(plan, procs=4)])
+    assert sweep.sweep_main(sweep_args(tmp_path)) == 2
+    assert "procs" in capsys.readouterr().err
+
+
+def test_resume_problems_pass_for_matching_runs(plan: report.Plan) -> None:
+    assert sweep.resume_problems([recorded(plan)], 1, SHA, False) == []
+    assert sweep.resume_problems([], 1, SHA, False) == []
+    assert (
+        len(
+            sweep.resume_problems(
+                [recorded(plan, procs=2, git_sha="x", git_dirty=True)], 1, SHA, True
+            )
+        )
+        == 4
+    )
+
+
+def test_the_guard_stops_a_sweep_when_the_tree_changes_midway(
+    tmp_path: Path, plan: report.Plan, clean_tree
+) -> None:
+    guard = sweep.make_guard(SHA)
+    guard()
+    clean_tree["value"] = (SHA, True)
+    with pytest.raises(sweep.SweepRefused, match="changed during the sweep"):
+        guard()
+    clean_tree["value"] = ("other", False)
+    with pytest.raises(sweep.SweepRefused):
+        guard()
+    fake = FakeRunner(tmp_path, plan, "matrix")
+    with pytest.raises(sweep.SweepRefused):
+        sweep.run_sweep(plan, tmp_path, run_fn=fake, guard=guard, log=lambda _: None)
+    assert fake.calls == []
+
+
+def test_ladder_needs_both_arms_to_pass_the_previous_stage(
+    tmp_path: Path, plan: report.Plan
+) -> None:
+    messages: list[str] = []
+    fake = FakeRunner(tmp_path, plan, naive_breaks_at=None, queued_p95=500.0)
+    lines = sweep.run_sweep(plan, tmp_path, run_fn=fake, log=messages.append)
+    assert {ln["stage"] for ln in lines} == {"matrix"}  # naive passed, queued did not
+    assert report.primary_verdict(lines, plan).label == "NOT SUPPORTED"
+    assert any("needs both arms to pass" in m and "queued failed" in m for m in messages)

@@ -10,8 +10,11 @@ to cover the whole run), takes one event as the grid reference, and counts the g
 scheduled time lies in [window_start, window_start + seconds). Every healthy client is expected
 to receive each of them. An event the server never published (a publisher stuck behind a stalled
 socket) still counts as expected, so a blocked publisher cannot shrink its own denominator. If
-the events do not sit on a grid, the harness falls back to the ring's own count, provided the
-ring covers the window, and says so in the result (`window.method`).
+the events do not sit on a grid the run is a harness error: there is no fallback that counts only
+what was published.
+
+A run is also flagged invalid (`invalid_reasons`) when it did not have the conditions it claims:
+fewer stalled clients than intended, or healthy clients that failed to connect or closed early.
 """
 
 from __future__ import annotations
@@ -156,9 +159,8 @@ def result_filename(started: datetime, cfg: BenchConfig) -> str:
 @dataclass(frozen=True)
 class ExpectedWindow:
     seq_range: range
-    scheduled: int  # grid slots (or ring events) with t_sched in the window
+    scheduled: int  # grid slots with t_sched in the window
     published: int  # of those, how many the server's ring actually holds
-    method: str  # "grid" | "ring"
     t_ref: float
     seq_ref: int
     grid_max_error_s: float
@@ -186,22 +188,18 @@ def expected_window(
     seq_ref, t_ref = ring[0]
     max_err = max(abs(t - (t_ref + (s - seq_ref) / rate)) for s, t in ring)
     held = {s for s, _ in ring}
-    if max_err < 0.25 / rate:
-        seqs = window_seq_range(t_ref, seq_ref, rate, window_start, seconds)
-        method = "grid"
-    elif ring[0][1] <= window_start:
-        in_window = [s for s, t in ring if window_start <= t < window_start + seconds]
-        seqs = range(in_window[0], in_window[-1] + 1) if in_window else range(0)
-        method = "ring"
-    else:
-        raise HarnessError("events are off the schedule grid and the ring misses the window start")
+    if max_err >= 0.25 / rate:
+        # Counting only what was published would let a stuck publisher shrink its own denominator.
+        raise HarnessError(
+            f"feed events are off the schedule grid (max error {max_err * 1000:.1f} ms at "
+            f"{rate:g}/s); the expected message count cannot be derived"
+        )
+    seqs = window_seq_range(t_ref, seq_ref, rate, window_start, seconds)
     if len(seqs) == 0:
         raise HarnessError("no events are scheduled inside the measurement window")
     if seqs.start < 1:
         raise HarnessError("the measurement window starts before the feed did")
-    return ExpectedWindow(
-        seqs, len(seqs), sum(s in held for s in seqs), method, t_ref, seq_ref, max_err
-    )
+    return ExpectedWindow(seqs, len(seqs), sum(s in held for s in seqs), t_ref, seq_ref, max_err)
 
 
 def collect_latencies(
@@ -245,6 +243,37 @@ def subscriber_order_inversions(subscribers: list[dict[str, Any]], slots: list[S
     position = {s.label: s.position for s in slots}
     seen = [position[s["client"]] for s in subscribers if s.get("client") in position]
     return sum(b < a for a, b in itertools.pairwise(seen))
+
+
+def integrity_reasons(
+    cfg: BenchConfig,
+    records: list[Any],
+    stalled_open: int,
+    stalled_errors: list[str],
+    end_stats: dict[str, Any],
+) -> list[str]:
+    """Why this run did not have the conditions it claims (empty list: it did).
+
+    `end_stats` is the server's /stats taken at the end of the window, before anything is closed.
+    """
+    reasons = []
+    if stalled_open != cfg.stalled:
+        why = f" ({stalled_errors[0]})" if stalled_errors else ""
+        reasons.append(f"{stalled_open} of {cfg.stalled} stalled handshakes completed{why}")
+    listed = sum(
+        str(s.get("client", "")).startswith("stalled-") for s in end_stats.get("subscribers", [])
+    )
+    if listed < cfg.stalled:
+        reasons.append(f"server lists {listed} of {cfg.stalled} stalled subscribers at window end")
+    if len(records) != cfg.healthy:
+        reasons.append(f"{len(records)} of {cfg.healthy} healthy clients reported")
+    failed = sum(not r.connected for r in records)
+    if failed:
+        reasons.append(f"{failed} healthy clients failed to connect")
+    closed = sum(r.closed_early for r in records)
+    if closed:
+        reasons.append(f"{closed} healthy clients closed early")
+    return reasons
 
 
 def analyze_run(
@@ -325,10 +354,10 @@ def analyze_run(
         "client_bytes_per_s": wire_total / cfg.seconds,
     }
     return {
+        "invalid_reasons": integrity_reasons(cfg, records, stalled_open, stalled_errors, end),
         "window": {
             "start": timing["ws"],
             "seconds": cfg.seconds,
-            "method": expected.method,
             "seq_first": expected.seq_range.start,
             "seq_last": expected.seq_range.stop - 1,
             "scheduled": expected.scheduled,
@@ -408,12 +437,19 @@ def _git(*args: str) -> str | None:
     return out.stdout.strip()
 
 
+def git_state() -> tuple[str | None, bool | None]:
+    """(HEAD sha, dirty). Dirty ignores `results/`, where the benchmark writes its own output.
+    None means git could not tell."""
+    dirty = _git("status", "--porcelain", "--", ".", ":(exclude)results")
+    return _git("rev-parse", "HEAD"), None if dirty is None else bool(dirty)
+
+
 def collect_environment() -> dict[str, Any]:
     versions = {}
     for name in PACKAGES:
         with contextlib.suppress(metadata.PackageNotFoundError):
             versions[name] = metadata.version(name)
-    dirty = _git("status", "--porcelain", "--", ".", ":(exclude)results")
+    sha, dirty = git_state()
     return {
         "platform": platform.platform(),
         "machine": platform.machine(),
@@ -425,8 +461,8 @@ def collect_environment() -> dict[str, Any]:
         "python_implementation": platform.python_implementation(),
         "packages": versions,
         "wslive_version": wslive.__version__,
-        "git_sha": _git("rev-parse", "HEAD"),
-        "git_dirty": None if dirty is None else bool(dirty),
+        "git_sha": sha,
+        "git_dirty": dirty,
         "wall_clock_resolution_s": time.get_clock_info("time").resolution,
     }
 
