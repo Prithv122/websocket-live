@@ -44,3 +44,9 @@ mlruns/
 Thumbs.db
 .vscode/
 .idea/
+
+# Node
+node_modules/
+
+# Benchmark scratch output (summaries are committed under results/)
+results/runs/*.tmp
