@@ -1,0 +1,16 @@
+{
+  "name": "websocket-live-web",
+  "private": true,
+  "type": "module",
+  "description": "Browser client and dashboard for websocket-live (vanilla ES modules, no build step)",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test-js/**/*.test.mjs\"",
+    "validate": "html-validate \"web/**/*.html\""
+  },
+  "devDependencies": {
+    "html-validate": "11.17.0"
+  }
+}

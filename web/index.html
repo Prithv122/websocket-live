@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>websocket-live: live orders dashboard</title>
+  <meta name="description" content="A live dashboard fed over WebSockets by a push server with per-client bounded queues.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="style.css">
+  <script src="js/theme.js" defer></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#dashboard">Skip to dashboard</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <p class="eyebrow">Live feed</p>
+      <h1>websocket-live</h1>
+      <p class="tagline">Orders pushed over a WebSocket, drawn as they arrive.</p>
+      <button id="theme-toggle" type="button" aria-pressed="false">
+        <span class="theme-toggle-icon" aria-hidden="true"></span>
+        <span class="theme-toggle-label">Dark mode</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="dashboard" class="wrap">
+    <noscript>
+      <p class="notice">This page needs JavaScript to show the live feed. Server counters are available without it at <a href="/stats">/stats</a>.</p>
+    </noscript>
+    <div id="app"></div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav aria-label="Server endpoints">
+        <a href="/stats">/stats</a>
+        <a href="/health">/health</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
