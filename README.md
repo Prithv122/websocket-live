@@ -114,7 +114,20 @@ environment to require `Authorization: Bearer <token>`.
 
 ## 7. What I'd change at 100× scale
 
-TBD after the sweep: where this one process saturates first, and what replaces it.
+- **One process, one core.** Every JSON encode and socket write runs on one event loop. Encode
+  each envelope once per publish (already done) and move fan-out to several worker processes,
+  each owning a slice of the sockets behind a load balancer with sticky connections.
+- **State lives in memory.** The ring buffer and sequence counters die with the process, which
+  the epoch heartbeat makes visible but does not prevent. At scale the log moves to a durable
+  stream (Redis Streams, Kafka or Redpanda, as in the streaming-pipeline project), and `seq`
+  becomes the stream offset, so any worker can serve `since=` replays.
+- **Fan-out cost grows with viewers × rate.** Coalesce updates per client (send the latest state
+  per zone at most every N ms instead of every event); a dashboard doesn't need every tick.
+- **Slow consumers at scale.** Keep the bounded drop-oldest queue and add an eviction rule (a
+  client that has dropped messages for more than a set time is closed and reconnects with
+  `since=`), so a permanently dead socket does not hold a writer task forever.
+- **Measurement.** The load generator would move to separate machines, with clock sync, since one
+  laptop running both sides is the first thing that breaks in this benchmark.
 
 ---
 
