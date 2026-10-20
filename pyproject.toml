@@ -1,0 +1,47 @@
+[project]
+name = "websocket-live"
+version = "0.1.0"
+description = "Real-time WebSocket push dashboard with a measured answer to the slow-consumer problem"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.153.0",
+    "psutil>=7.2.2",
+    "uvicorn[standard]>=0.54.0",
+    "websockets>=17.3",
+]
+
+# Console entry points need a real build backend: a uv virtual project
+# ([tool.uv] package = false) installs nothing, so the documented command fails
+# with "No module named ..." even while tests pass (pytest's pythonpath hides it).
+[project.scripts]
+wslive = "wslive.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Keep this path and the [project.scripts] target above in step when renaming the package.
+[tool.hatch.build.targets.wheel]
+packages = ["src/wslive"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["bench_smoke: short real-socket run of the load generator (< 10 s)"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
