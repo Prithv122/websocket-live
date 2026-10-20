@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "channel": "orders",
+  "seq": 1,
+  "ts": "2026-10-20T12:34:56.789Z",
+  "type": "heartbeat",
+  "data": {}
+}

@@ -1,0 +1,38 @@
+{
+  "v": 1,
+  "channel": "orders",
+  "seq": 3,
+  "ts": "2026-10-20T12:34:56.789Z",
+  "type": "snapshot",
+  "data": {
+    "oldest": 2,
+    "events": [
+      {
+        "v": 1,
+        "channel": "orders",
+        "seq": 2,
+        "ts": "2026-10-20T12:34:56.789Z",
+        "type": "event",
+        "data": {
+          "order_id": "ord-000002",
+          "zone": "south",
+          "amount": 102.0,
+          "status": "placed"
+        }
+      },
+      {
+        "v": 1,
+        "channel": "orders",
+        "seq": 3,
+        "ts": "2026-10-20T12:34:56.789Z",
+        "type": "event",
+        "data": {
+          "order_id": "ord-000003",
+          "zone": "south",
+          "amount": 103.0,
+          "status": "placed"
+        }
+      }
+    ]
+  }
+}
