@@ -6,8 +6,8 @@ Form: **action → technical specifics → measured outcome.** Numbers or it doe
 
 ## Bullets
 
-- Built a WebSocket push server (FastAPI/Starlette, own fan-out hub, sequence numbers with resume from a 1,000-event ring buffer) and a vanilla-JS live dashboard; in a pre-registered 60-run benchmark with 10% of 200 clients never reading, a naive broadcast delivered 0% of 4 KB events to healthy clients while a per-client drop-oldest queue held p95 latency at 23.6 ms with 100% delivered.
-- Designed the benchmark to avoid coordinated omission (latency from the scheduled publish time, missing messages counted as infinite) with raw-socket stalled clients, a loop-lag validity check and an escalation ladder fixed before any run; the verdict is computed by a script, and a null at small message sizes was reported, not tuned away.
+- Built a WebSocket push server (FastAPI/Starlette, own fan-out hub, sequence numbers with resume from a 1,000-event ring buffer) and a vanilla-JS live dashboard; in a pre-registered 60-run single-machine benchmark with 10% of 200 clients never reading, a naive broadcast delivered 0% of 4 KB events to healthy clients while a per-client drop-oldest queue held p95 latency at 23.6 ms with 100% delivered to healthy clients.
+- Designed the benchmark to avoid coordinated omission (latency from the scheduled publish time, missing messages counted as infinite) with raw-socket stalled clients, a loop-lag validity check and an escalation ladder fixed before any run; the verdict is computed by a script, and naive's pass at small message sizes was reported, not tuned away.
 
 ## Which roles this supports
 

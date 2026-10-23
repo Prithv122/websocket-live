@@ -37,14 +37,17 @@ a loop-lag control flags runs where the load generator itself was stalling.
 
 _A:_ I wrote the question, the budget (p95 ≤ 100 ms from the scheduled time, ≥ 99% delivered, at
 200 clients with 20 stalled) and an escalation ladder into `EVAL_PLAN.md` before any run, and
-`wslive report` prints the verdict. At the default ~190-byte messages both strategies passed:
-naive's p95 was 21.4 ms, queued's 24.0 ms. That was the null I had planned for: at 20 small events a
-second the buffers in front of a stalled socket don't fill within a 65-second run. Step 1 of the
-ladder, 4 KB messages, filled them during warm-up, and naive delivered **0%** of events to the 180
-healthy clients in every repeat, while queued stayed at 23.6 ms and 100%. So the verdict is
-"supported under escalation", 60 runs, none invalid. The baseline is naive itself, same harness and
-same machine, and the cost of the fix is visible too: with no stalled clients queued is a few
-milliseconds slower (24.6 vs 20.4 ms at N = 200).
+`wslive report` prints the verdict. At the default ~195-byte messages both strategies passed:
+naive's p95 was 21.4 ms, queued's 24.0 ms. That is the case the escalation ladder was written for,
+and a probe before the sweep had already shown it was a near miss: at 20 small events a second the
+buffers in front of a stalled socket take about 66 s to fill, and a run lasts 65 (that probe is in
+NOTES, not in the committed results). Step 1 of the
+ladder, 4 KB messages, filled them before the measurement window opened, and naive delivered
+**0%** of events to the 180 healthy clients in every repeat, while queued stayed at 23.6 ms with
+100% delivered to healthy clients. So the verdict is "supported under escalation", 60 runs, none
+invalid, all on one laptop. The baseline is naive itself, same harness and same machine, and the
+cost of the fix shows too: queued's p95 was higher in every small-message cell, by up to 9.9 ms at
+N = 500.
 
 ### Q5. Why measure latency from the scheduled publish time and not the server's timestamp?
 
@@ -70,8 +73,9 @@ kernel buffer to prove every byte after the handshake is still there.
 
 Live dashboards push updates over WebSockets, and the quiet failure is one frozen viewer: a
 broadcast loop that awaits each send makes everyone wait behind it. I built the push server, a
-vanilla-JS dashboard with lossless reconnect, and a load generator with clients that never read
-their socket, then pre-registered the test. With small messages a naive broadcast survived a
-one-minute run; with 4 KB messages it delivered nothing at all to 180 healthy clients, while a
-bounded drop-oldest queue per client held p95 at about 24 ms with everything delivered. The latency
-is measured from the scheduled publish time, so a stuck publisher can't hide its own delay.
+vanilla-JS dashboard that reconnects and replays what it missed from a 1,000-event buffer, and a
+load generator with clients that never read their socket, then pre-registered the test. On a
+single-laptop simulator, a naive broadcast survived a one-minute run with small messages; with 4 KB
+messages it delivered nothing at all to 180 healthy clients, while a bounded drop-oldest queue per
+client held p95 at about 24 ms with every event delivered to the healthy clients. The latency is
+measured from the scheduled publish time, so a stuck publisher can't hide its own delay.
