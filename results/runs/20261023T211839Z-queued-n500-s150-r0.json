@@ -1,0 +1,1743 @@
+{
+  "schema_version": 1,
+  "started_utc": "2026-10-23T21:18:39+00:00",
+  "config": {
+    "strategy": "queued",
+    "n": 500,
+    "stalled": 150,
+    "rate": 20,
+    "seconds": 60,
+    "warmup": 3,
+    "drain": 2,
+    "pad_bytes": 0,
+    "rcvbuf": null,
+    "queue_size": 64,
+    "procs": 4,
+    "mode": "push",
+    "port": 0,
+    "out": "results\\runs",
+    "seed": 7,
+    "repeat_index": 0,
+    "poll_interval": 1.0,
+    "host": "127.0.0.1",
+    "channel": "orders",
+    "heartbeat": 10.0,
+    "connect_gap_s": 0.005,
+    "stalled_share": 0.3,
+    "ring_size": 1950,
+    "procs_used": 4
+  },
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "cpu_model": "Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz",
+    "cpu_count_logical": 12,
+    "cpu_count_physical": 6,
+    "memory_total_bytes": 68450603008,
+    "python": "3.13.13",
+    "python_implementation": "CPython",
+    "packages": {
+      "fastapi": "0.153.0",
+      "uvicorn": "0.54.0",
+      "websockets": "17.3",
+      "starlette": "1.9.0",
+      "psutil": "7.2.2",
+      "pydantic": "2.14.1"
+    },
+    "wslive_version": "0.1.0",
+    "git_sha": "401cd9ba4e4f37ae7c28c3d91e5c3f65576c0a75",
+    "git_dirty": false,
+    "wall_clock_resolution_s": 1e-07
+  },
+  "invalid_reasons": [],
+  "window": {
+    "start": 1792790327.058862,
+    "seconds": 60,
+    "seq_first": 123,
+    "seq_last": 1322,
+    "scheduled": 1200,
+    "published": 1200,
+    "t_ref": 1792790320.9590437,
+    "seq_ref": 1,
+    "grid_max_error_ms": 0.0
+  },
+  "healthy": {
+    "count": 350,
+    "connected": 350,
+    "connect_failures": 0,
+    "closed_early": 0,
+    "errors": [],
+    "expected_per_client": 1200,
+    "expected_total": 420000,
+    "received_total": 420000,
+    "delivery_ratio": 1.0,
+    "min_client_delivery_ratio": 1.0,
+    "gaps_seen": 0,
+    "gap_events": 0,
+    "seq_anomalies": 0,
+    "duplicates": 0,
+    "events_without_t_sched": 0,
+    "dropped_by_server": 0,
+    "latency_sched": {
+      "count": 420000,
+      "finite": 420000,
+      "min_ms": 1.4858245849609375,
+      "p50_ms": 21.008014678955078,
+      "p95_ms": 35.81857681274414,
+      "p99_ms": 42.58108139038086,
+      "max_ms": 82.84187316894531,
+      "mean_finite_ms": 21.247965477761767
+    },
+    "latency_ts": {
+      "count": 420000,
+      "finite": 420000,
+      "min_ms": 1.3184547424316406,
+      "p50_ms": 13.473272323608398,
+      "p95_ms": 25.35700798034668,
+      "p99_ms": 27.773380279541016,
+      "max_ms": 72.16787338256836,
+      "mean_finite_ms": 14.169212761379423
+    },
+    "histogram_sched_ms": {
+      "lo": 0.1,
+      "hi": 120000.0,
+      "growth": 1.02,
+      "buckets": 707,
+      "counts": {
+        "136": 2,
+        "138": 1,
+        "139": 2,
+        "140": 1,
+        "141": 5,
+        "142": 1,
+        "143": 4,
+        "144": 6,
+        "145": 6,
+        "146": 8,
+        "147": 7,
+        "148": 9,
+        "149": 17,
+        "150": 12,
+        "151": 16,
+        "152": 17,
+        "153": 23,
+        "154": 24,
+        "155": 27,
+        "156": 30,
+        "157": 37,
+        "158": 40,
+        "159": 41,
+        "160": 42,
+        "161": 55,
+        "162": 52,
+        "163": 57,
+        "164": 65,
+        "165": 71,
+        "166": 66,
+        "167": 69,
+        "168": 81,
+        "169": 93,
+        "170": 76,
+        "171": 95,
+        "172": 99,
+        "173": 98,
+        "174": 120,
+        "175": 112,
+        "176": 132,
+        "177": 131,
+        "178": 138,
+        "179": 117,
+        "180": 124,
+        "181": 117,
+        "182": 123,
+        "183": 149,
+        "184": 135,
+        "185": 147,
+        "186": 183,
+        "187": 195,
+        "188": 223,
+        "189": 257,
+        "190": 278,
+        "191": 307,
+        "192": 318,
+        "193": 329,
+        "194": 367,
+        "195": 370,
+        "196": 385,
+        "197": 417,
+        "198": 433,
+        "199": 475,
+        "200": 509,
+        "201": 561,
+        "202": 569,
+        "203": 620,
+        "204": 672,
+        "205": 688,
+        "206": 741,
+        "207": 827,
+        "208": 816,
+        "209": 902,
+        "210": 902,
+        "211": 983,
+        "212": 1014,
+        "213": 1088,
+        "214": 1182,
+        "215": 1194,
+        "216": 1235,
+        "217": 1317,
+        "218": 1332,
+        "219": 1410,
+        "220": 1413,
+        "221": 1473,
+        "222": 1534,
+        "223": 1573,
+        "224": 1621,
+        "225": 1706,
+        "226": 1724,
+        "227": 1790,
+        "228": 1826,
+        "229": 1915,
+        "230": 1974,
+        "231": 2025,
+        "232": 2152,
+        "233": 2156,
+        "234": 2296,
+        "235": 2361,
+        "236": 2448,
+        "237": 2534,
+        "238": 2655,
+        "239": 2769,
+        "240": 2739,
+        "241": 2321,
+        "242": 2312,
+        "243": 2825,
+        "244": 3333,
+        "245": 3420,
+        "246": 3580,
+        "247": 3737,
+        "248": 3938,
+        "249": 4213,
+        "250": 4430,
+        "251": 4577,
+        "252": 4748,
+        "253": 4906,
+        "254": 4978,
+        "255": 5117,
+        "256": 5178,
+        "257": 5293,
+        "258": 5518,
+        "259": 5673,
+        "260": 5772,
+        "261": 5878,
+        "262": 5955,
+        "263": 6139,
+        "264": 6251,
+        "265": 6371,
+        "266": 6547,
+        "267": 6611,
+        "268": 5151,
+        "269": 6267,
+        "270": 7003,
+        "271": 7196,
+        "272": 7560,
+        "273": 7737,
+        "274": 7886,
+        "275": 8113,
+        "276": 8247,
+        "277": 8245,
+        "278": 8418,
+        "279": 8366,
+        "280": 8342,
+        "281": 8169,
+        "282": 8104,
+        "283": 8052,
+        "284": 7880,
+        "285": 6335,
+        "286": 6383,
+        "287": 6603,
+        "288": 6392,
+        "289": 6273,
+        "290": 6202,
+        "291": 6060,
+        "292": 5739,
+        "293": 5422,
+        "294": 5244,
+        "295": 4947,
+        "296": 4432,
+        "297": 3857,
+        "298": 2745,
+        "299": 2573,
+        "300": 2136,
+        "301": 1752,
+        "302": 1365,
+        "303": 1102,
+        "304": 744,
+        "305": 613,
+        "306": 462,
+        "307": 400,
+        "308": 325,
+        "309": 233,
+        "310": 230,
+        "311": 194,
+        "312": 172,
+        "313": 170,
+        "314": 136,
+        "315": 118,
+        "316": 54,
+        "317": 54,
+        "318": 55,
+        "319": 52,
+        "320": 13,
+        "321": 35,
+        "322": 23,
+        "323": 48,
+        "324": 65,
+        "325": 95,
+        "326": 94,
+        "327": 90,
+        "328": 107,
+        "329": 125,
+        "330": 120,
+        "331": 78,
+        "332": 78,
+        "333": 90,
+        "334": 75,
+        "335": 86,
+        "336": 52,
+        "337": 46,
+        "338": 56,
+        "339": 10
+      },
+      "below": 0,
+      "overflow": 0,
+      "missing": 0,
+      "total": 420000
+    }
+  },
+  "stalled": {
+    "count": 150,
+    "connected": 150,
+    "connect_errors": [],
+    "dropped": {
+      "stalled-0": 0,
+      "stalled-1": 0,
+      "stalled-10": 0,
+      "stalled-100": 0,
+      "stalled-101": 0,
+      "stalled-102": 0,
+      "stalled-103": 0,
+      "stalled-104": 0,
+      "stalled-105": 0,
+      "stalled-106": 0,
+      "stalled-107": 0,
+      "stalled-108": 0,
+      "stalled-109": 0,
+      "stalled-11": 0,
+      "stalled-110": 0,
+      "stalled-111": 0,
+      "stalled-112": 0,
+      "stalled-113": 0,
+      "stalled-114": 0,
+      "stalled-115": 0,
+      "stalled-116": 0,
+      "stalled-117": 0,
+      "stalled-118": 0,
+      "stalled-119": 0,
+      "stalled-12": 0,
+      "stalled-120": 0,
+      "stalled-121": 0,
+      "stalled-122": 0,
+      "stalled-123": 0,
+      "stalled-124": 0,
+      "stalled-125": 0,
+      "stalled-126": 0,
+      "stalled-127": 0,
+      "stalled-128": 0,
+      "stalled-129": 0,
+      "stalled-13": 0,
+      "stalled-130": 0,
+      "stalled-131": 0,
+      "stalled-132": 0,
+      "stalled-133": 0,
+      "stalled-134": 0,
+      "stalled-135": 0,
+      "stalled-136": 0,
+      "stalled-137": 0,
+      "stalled-138": 0,
+      "stalled-139": 0,
+      "stalled-14": 0,
+      "stalled-140": 0,
+      "stalled-141": 0,
+      "stalled-142": 0,
+      "stalled-143": 0,
+      "stalled-144": 0,
+      "stalled-145": 0,
+      "stalled-146": 0,
+      "stalled-147": 0,
+      "stalled-148": 0,
+      "stalled-149": 0,
+      "stalled-15": 0,
+      "stalled-16": 0,
+      "stalled-17": 0,
+      "stalled-18": 0,
+      "stalled-19": 0,
+      "stalled-2": 0,
+      "stalled-20": 0,
+      "stalled-21": 0,
+      "stalled-22": 0,
+      "stalled-23": 0,
+      "stalled-24": 0,
+      "stalled-25": 0,
+      "stalled-26": 0,
+      "stalled-27": 0,
+      "stalled-28": 0,
+      "stalled-29": 0,
+      "stalled-3": 0,
+      "stalled-30": 0,
+      "stalled-31": 0,
+      "stalled-32": 0,
+      "stalled-33": 0,
+      "stalled-34": 0,
+      "stalled-35": 0,
+      "stalled-36": 0,
+      "stalled-37": 0,
+      "stalled-38": 0,
+      "stalled-39": 0,
+      "stalled-4": 0,
+      "stalled-40": 0,
+      "stalled-41": 0,
+      "stalled-42": 0,
+      "stalled-43": 0,
+      "stalled-44": 0,
+      "stalled-45": 0,
+      "stalled-46": 0,
+      "stalled-47": 0,
+      "stalled-48": 0,
+      "stalled-49": 0,
+      "stalled-5": 0,
+      "stalled-50": 0,
+      "stalled-51": 0,
+      "stalled-52": 0,
+      "stalled-53": 0,
+      "stalled-54": 0,
+      "stalled-55": 0,
+      "stalled-56": 0,
+      "stalled-57": 0,
+      "stalled-58": 0,
+      "stalled-59": 0,
+      "stalled-6": 0,
+      "stalled-60": 0,
+      "stalled-61": 0,
+      "stalled-62": 0,
+      "stalled-63": 0,
+      "stalled-64": 0,
+      "stalled-65": 0,
+      "stalled-66": 0,
+      "stalled-67": 0,
+      "stalled-68": 0,
+      "stalled-69": 0,
+      "stalled-7": 0,
+      "stalled-70": 0,
+      "stalled-71": 0,
+      "stalled-72": 0,
+      "stalled-73": 0,
+      "stalled-74": 0,
+      "stalled-75": 0,
+      "stalled-76": 0,
+      "stalled-77": 0,
+      "stalled-78": 0,
+      "stalled-79": 0,
+      "stalled-8": 0,
+      "stalled-80": 0,
+      "stalled-81": 0,
+      "stalled-82": 0,
+      "stalled-83": 0,
+      "stalled-84": 0,
+      "stalled-85": 0,
+      "stalled-86": 0,
+      "stalled-87": 0,
+      "stalled-88": 0,
+      "stalled-89": 0,
+      "stalled-9": 0,
+      "stalled-90": 0,
+      "stalled-91": 0,
+      "stalled-92": 0,
+      "stalled-93": 0,
+      "stalled-94": 0,
+      "stalled-95": 0,
+      "stalled-96": 0,
+      "stalled-97": 0,
+      "stalled-98": 0,
+      "stalled-99": 0
+    },
+    "dropped_total": 0,
+    "queued_total": 2429
+  },
+  "server": {
+    "rss_idle_bytes": 54591488,
+    "rss_max_bytes": 129003520,
+    "rss_final_bytes": 129003520,
+    "rss_samples": 135,
+    "rss_reported_final_bytes": 128307200,
+    "cpu_cores_used": 0.50448694622194,
+    "system_cpu_percent": 12.6,
+    "stats_final": {
+      "strategy": "queued",
+      "queue_size": 64,
+      "channels": {
+        "orders": {
+          "seq": 1365,
+          "subscribers": 150
+        }
+      },
+      "subscribers": [
+        {
+          "id": "s1",
+          "channel": "orders",
+          "client": "stalled-0",
+          "dropped": 0,
+          "queued": 39,
+          "sent": 1319
+        },
+        {
+          "id": "s3",
+          "channel": "orders",
+          "client": "stalled-1",
+          "dropped": 0,
+          "queued": 39,
+          "sent": 1319
+        },
+        {
+          "id": "s6",
+          "channel": "orders",
+          "client": "stalled-2",
+          "dropped": 0,
+          "queued": 39,
+          "sent": 1319
+        },
+        {
+          "id": "s10",
+          "channel": "orders",
+          "client": "stalled-3",
+          "dropped": 0,
+          "queued": 39,
+          "sent": 1319
+        },
+        {
+          "id": "s14",
+          "channel": "orders",
+          "client": "stalled-4",
+          "dropped": 0,
+          "queued": 38,
+          "sent": 1319
+        },
+        {
+          "id": "s19",
+          "channel": "orders",
+          "client": "stalled-5",
+          "dropped": 0,
+          "queued": 38,
+          "sent": 1319
+        },
+        {
+          "id": "s22",
+          "channel": "orders",
+          "client": "stalled-6",
+          "dropped": 0,
+          "queued": 38,
+          "sent": 1319
+        },
+        {
+          "id": "s25",
+          "channel": "orders",
+          "client": "stalled-7",
+          "dropped": 0,
+          "queued": 37,
+          "sent": 1319
+        },
+        {
+          "id": "s28",
+          "channel": "orders",
+          "client": "stalled-8",
+          "dropped": 0,
+          "queued": 37,
+          "sent": 1319
+        },
+        {
+          "id": "s31",
+          "channel": "orders",
+          "client": "stalled-9",
+          "dropped": 0,
+          "queued": 36,
+          "sent": 1319
+        },
+        {
+          "id": "s35",
+          "channel": "orders",
+          "client": "stalled-10",
+          "dropped": 0,
+          "queued": 36,
+          "sent": 1319
+        },
+        {
+          "id": "s37",
+          "channel": "orders",
+          "client": "stalled-11",
+          "dropped": 0,
+          "queued": 36,
+          "sent": 1319
+        },
+        {
+          "id": "s40",
+          "channel": "orders",
+          "client": "stalled-12",
+          "dropped": 0,
+          "queued": 35,
+          "sent": 1319
+        },
+        {
+          "id": "s44",
+          "channel": "orders",
+          "client": "stalled-13",
+          "dropped": 0,
+          "queued": 35,
+          "sent": 1319
+        },
+        {
+          "id": "s49",
+          "channel": "orders",
+          "client": "stalled-14",
+          "dropped": 0,
+          "queued": 35,
+          "sent": 1319
+        },
+        {
+          "id": "s52",
+          "channel": "orders",
+          "client": "stalled-15",
+          "dropped": 0,
+          "queued": 35,
+          "sent": 1319
+        },
+        {
+          "id": "s55",
+          "channel": "orders",
+          "client": "stalled-16",
+          "dropped": 0,
+          "queued": 34,
+          "sent": 1319
+        },
+        {
+          "id": "s59",
+          "channel": "orders",
+          "client": "stalled-17",
+          "dropped": 0,
+          "queued": 34,
+          "sent": 1319
+        },
+        {
+          "id": "s62",
+          "channel": "orders",
+          "client": "stalled-18",
+          "dropped": 0,
+          "queued": 33,
+          "sent": 1319
+        },
+        {
+          "id": "s65",
+          "channel": "orders",
+          "client": "stalled-19",
+          "dropped": 0,
+          "queued": 33,
+          "sent": 1319
+        },
+        {
+          "id": "s69",
+          "channel": "orders",
+          "client": "stalled-20",
+          "dropped": 0,
+          "queued": 33,
+          "sent": 1319
+        },
+        {
+          "id": "s71",
+          "channel": "orders",
+          "client": "stalled-21",
+          "dropped": 0,
+          "queued": 33,
+          "sent": 1318
+        },
+        {
+          "id": "s75",
+          "channel": "orders",
+          "client": "stalled-22",
+          "dropped": 0,
+          "queued": 33,
+          "sent": 1318
+        },
+        {
+          "id": "s77",
+          "channel": "orders",
+          "client": "stalled-23",
+          "dropped": 0,
+          "queued": 33,
+          "sent": 1318
+        },
+        {
+          "id": "s81",
+          "channel": "orders",
+          "client": "stalled-24",
+          "dropped": 0,
+          "queued": 32,
+          "sent": 1318
+        },
+        {
+          "id": "s85",
+          "channel": "orders",
+          "client": "stalled-25",
+          "dropped": 0,
+          "queued": 32,
+          "sent": 1318
+        },
+        {
+          "id": "s89",
+          "channel": "orders",
+          "client": "stalled-26",
+          "dropped": 0,
+          "queued": 32,
+          "sent": 1318
+        },
+        {
+          "id": "s92",
+          "channel": "orders",
+          "client": "stalled-27",
+          "dropped": 0,
+          "queued": 31,
+          "sent": 1318
+        },
+        {
+          "id": "s95",
+          "channel": "orders",
+          "client": "stalled-28",
+          "dropped": 0,
+          "queued": 31,
+          "sent": 1318
+        },
+        {
+          "id": "s97",
+          "channel": "orders",
+          "client": "stalled-29",
+          "dropped": 0,
+          "queued": 31,
+          "sent": 1318
+        },
+        {
+          "id": "s101",
+          "channel": "orders",
+          "client": "stalled-30",
+          "dropped": 0,
+          "queued": 31,
+          "sent": 1318
+        },
+        {
+          "id": "s104",
+          "channel": "orders",
+          "client": "stalled-31",
+          "dropped": 0,
+          "queued": 30,
+          "sent": 1318
+        },
+        {
+          "id": "s109",
+          "channel": "orders",
+          "client": "stalled-32",
+          "dropped": 0,
+          "queued": 30,
+          "sent": 1318
+        },
+        {
+          "id": "s112",
+          "channel": "orders",
+          "client": "stalled-33",
+          "dropped": 0,
+          "queued": 30,
+          "sent": 1318
+        },
+        {
+          "id": "s115",
+          "channel": "orders",
+          "client": "stalled-34",
+          "dropped": 0,
+          "queued": 29,
+          "sent": 1318
+        },
+        {
+          "id": "s117",
+          "channel": "orders",
+          "client": "stalled-35",
+          "dropped": 0,
+          "queued": 29,
+          "sent": 1318
+        },
+        {
+          "id": "s120",
+          "channel": "orders",
+          "client": "stalled-36",
+          "dropped": 0,
+          "queued": 28,
+          "sent": 1318
+        },
+        {
+          "id": "s125",
+          "channel": "orders",
+          "client": "stalled-37",
+          "dropped": 0,
+          "queued": 28,
+          "sent": 1318
+        },
+        {
+          "id": "s128",
+          "channel": "orders",
+          "client": "stalled-38",
+          "dropped": 0,
+          "queued": 28,
+          "sent": 1318
+        },
+        {
+          "id": "s131",
+          "channel": "orders",
+          "client": "stalled-39",
+          "dropped": 0,
+          "queued": 27,
+          "sent": 1318
+        },
+        {
+          "id": "s135",
+          "channel": "orders",
+          "client": "stalled-40",
+          "dropped": 0,
+          "queued": 27,
+          "sent": 1318
+        },
+        {
+          "id": "s138",
+          "channel": "orders",
+          "client": "stalled-41",
+          "dropped": 0,
+          "queued": 27,
+          "sent": 1318
+        },
+        {
+          "id": "s141",
+          "channel": "orders",
+          "client": "stalled-42",
+          "dropped": 0,
+          "queued": 26,
+          "sent": 1318
+        },
+        {
+          "id": "s145",
+          "channel": "orders",
+          "client": "stalled-43",
+          "dropped": 0,
+          "queued": 26,
+          "sent": 1318
+        },
+        {
+          "id": "s147",
+          "channel": "orders",
+          "client": "stalled-44",
+          "dropped": 0,
+          "queued": 26,
+          "sent": 1318
+        },
+        {
+          "id": "s150",
+          "channel": "orders",
+          "client": "stalled-45",
+          "dropped": 0,
+          "queued": 25,
+          "sent": 1318
+        },
+        {
+          "id": "s155",
+          "channel": "orders",
+          "client": "stalled-46",
+          "dropped": 0,
+          "queued": 25,
+          "sent": 1318
+        },
+        {
+          "id": "s157",
+          "channel": "orders",
+          "client": "stalled-47",
+          "dropped": 0,
+          "queued": 25,
+          "sent": 1318
+        },
+        {
+          "id": "s160",
+          "channel": "orders",
+          "client": "stalled-48",
+          "dropped": 0,
+          "queued": 24,
+          "sent": 1318
+        },
+        {
+          "id": "s165",
+          "channel": "orders",
+          "client": "stalled-49",
+          "dropped": 0,
+          "queued": 24,
+          "sent": 1318
+        },
+        {
+          "id": "s169",
+          "channel": "orders",
+          "client": "stalled-50",
+          "dropped": 0,
+          "queued": 24,
+          "sent": 1318
+        },
+        {
+          "id": "s172",
+          "channel": "orders",
+          "client": "stalled-51",
+          "dropped": 0,
+          "queued": 24,
+          "sent": 1318
+        },
+        {
+          "id": "s175",
+          "channel": "orders",
+          "client": "stalled-52",
+          "dropped": 0,
+          "queued": 23,
+          "sent": 1318
+        },
+        {
+          "id": "s179",
+          "channel": "orders",
+          "client": "stalled-53",
+          "dropped": 0,
+          "queued": 23,
+          "sent": 1318
+        },
+        {
+          "id": "s182",
+          "channel": "orders",
+          "client": "stalled-54",
+          "dropped": 0,
+          "queued": 22,
+          "sent": 1318
+        },
+        {
+          "id": "s185",
+          "channel": "orders",
+          "client": "stalled-55",
+          "dropped": 0,
+          "queued": 22,
+          "sent": 1318
+        },
+        {
+          "id": "s187",
+          "channel": "orders",
+          "client": "stalled-56",
+          "dropped": 0,
+          "queued": 22,
+          "sent": 1318
+        },
+        {
+          "id": "s190",
+          "channel": "orders",
+          "client": "stalled-57",
+          "dropped": 0,
+          "queued": 21,
+          "sent": 1318
+        },
+        {
+          "id": "s195",
+          "channel": "orders",
+          "client": "stalled-58",
+          "dropped": 0,
+          "queued": 21,
+          "sent": 1318
+        },
+        {
+          "id": "s199",
+          "channel": "orders",
+          "client": "stalled-59",
+          "dropped": 0,
+          "queued": 21,
+          "sent": 1318
+        },
+        {
+          "id": "s203",
+          "channel": "orders",
+          "client": "stalled-60",
+          "dropped": 0,
+          "queued": 20,
+          "sent": 1318
+        },
+        {
+          "id": "s205",
+          "channel": "orders",
+          "client": "stalled-61",
+          "dropped": 0,
+          "queued": 20,
+          "sent": 1318
+        },
+        {
+          "id": "s209",
+          "channel": "orders",
+          "client": "stalled-62",
+          "dropped": 0,
+          "queued": 20,
+          "sent": 1318
+        },
+        {
+          "id": "s212",
+          "channel": "orders",
+          "client": "stalled-63",
+          "dropped": 0,
+          "queued": 20,
+          "sent": 1318
+        },
+        {
+          "id": "s215",
+          "channel": "orders",
+          "client": "stalled-64",
+          "dropped": 0,
+          "queued": 19,
+          "sent": 1318
+        },
+        {
+          "id": "s217",
+          "channel": "orders",
+          "client": "stalled-65",
+          "dropped": 0,
+          "queued": 19,
+          "sent": 1318
+        },
+        {
+          "id": "s220",
+          "channel": "orders",
+          "client": "stalled-66",
+          "dropped": 0,
+          "queued": 18,
+          "sent": 1318
+        },
+        {
+          "id": "s225",
+          "channel": "orders",
+          "client": "stalled-67",
+          "dropped": 0,
+          "queued": 18,
+          "sent": 1318
+        },
+        {
+          "id": "s228",
+          "channel": "orders",
+          "client": "stalled-68",
+          "dropped": 0,
+          "queued": 18,
+          "sent": 1318
+        },
+        {
+          "id": "s231",
+          "channel": "orders",
+          "client": "stalled-69",
+          "dropped": 0,
+          "queued": 17,
+          "sent": 1318
+        },
+        {
+          "id": "s236",
+          "channel": "orders",
+          "client": "stalled-70",
+          "dropped": 0,
+          "queued": 17,
+          "sent": 1318
+        },
+        {
+          "id": "s238",
+          "channel": "orders",
+          "client": "stalled-71",
+          "dropped": 0,
+          "queued": 17,
+          "sent": 1318
+        },
+        {
+          "id": "s240",
+          "channel": "orders",
+          "client": "stalled-72",
+          "dropped": 0,
+          "queued": 16,
+          "sent": 1318
+        },
+        {
+          "id": "s245",
+          "channel": "orders",
+          "client": "stalled-73",
+          "dropped": 0,
+          "queued": 16,
+          "sent": 1318
+        },
+        {
+          "id": "s248",
+          "channel": "orders",
+          "client": "stalled-74",
+          "dropped": 0,
+          "queued": 16,
+          "sent": 1318
+        },
+        {
+          "id": "s250",
+          "channel": "orders",
+          "client": "stalled-75",
+          "dropped": 0,
+          "queued": 15,
+          "sent": 1318
+        },
+        {
+          "id": "s255",
+          "channel": "orders",
+          "client": "stalled-76",
+          "dropped": 0,
+          "queued": 15,
+          "sent": 1318
+        },
+        {
+          "id": "s258",
+          "channel": "orders",
+          "client": "stalled-77",
+          "dropped": 0,
+          "queued": 15,
+          "sent": 1318
+        },
+        {
+          "id": "s262",
+          "channel": "orders",
+          "client": "stalled-78",
+          "dropped": 0,
+          "queued": 14,
+          "sent": 1318
+        },
+        {
+          "id": "s265",
+          "channel": "orders",
+          "client": "stalled-79",
+          "dropped": 0,
+          "queued": 14,
+          "sent": 1318
+        },
+        {
+          "id": "s269",
+          "channel": "orders",
+          "client": "stalled-80",
+          "dropped": 0,
+          "queued": 14,
+          "sent": 1318
+        },
+        {
+          "id": "s271",
+          "channel": "orders",
+          "client": "stalled-81",
+          "dropped": 0,
+          "queued": 13,
+          "sent": 1318
+        },
+        {
+          "id": "s278",
+          "channel": "orders",
+          "client": "stalled-82",
+          "dropped": 0,
+          "queued": 13,
+          "sent": 1318
+        },
+        {
+          "id": "s279",
+          "channel": "orders",
+          "client": "stalled-83",
+          "dropped": 0,
+          "queued": 13,
+          "sent": 1318
+        },
+        {
+          "id": "s281",
+          "channel": "orders",
+          "client": "stalled-84",
+          "dropped": 0,
+          "queued": 12,
+          "sent": 1318
+        },
+        {
+          "id": "s285",
+          "channel": "orders",
+          "client": "stalled-85",
+          "dropped": 0,
+          "queued": 12,
+          "sent": 1318
+        },
+        {
+          "id": "s288",
+          "channel": "orders",
+          "client": "stalled-86",
+          "dropped": 0,
+          "queued": 12,
+          "sent": 1318
+        },
+        {
+          "id": "s292",
+          "channel": "orders",
+          "client": "stalled-87",
+          "dropped": 0,
+          "queued": 11,
+          "sent": 1318
+        },
+        {
+          "id": "s295",
+          "channel": "orders",
+          "client": "stalled-88",
+          "dropped": 0,
+          "queued": 11,
+          "sent": 1318
+        },
+        {
+          "id": "s299",
+          "channel": "orders",
+          "client": "stalled-89",
+          "dropped": 0,
+          "queued": 11,
+          "sent": 1318
+        },
+        {
+          "id": "s300",
+          "channel": "orders",
+          "client": "stalled-90",
+          "dropped": 0,
+          "queued": 10,
+          "sent": 1318
+        },
+        {
+          "id": "s306",
+          "channel": "orders",
+          "client": "stalled-91",
+          "dropped": 0,
+          "queued": 10,
+          "sent": 1318
+        },
+        {
+          "id": "s308",
+          "channel": "orders",
+          "client": "stalled-92",
+          "dropped": 0,
+          "queued": 10,
+          "sent": 1318
+        },
+        {
+          "id": "s310",
+          "channel": "orders",
+          "client": "stalled-93",
+          "dropped": 0,
+          "queued": 9,
+          "sent": 1318
+        },
+        {
+          "id": "s316",
+          "channel": "orders",
+          "client": "stalled-94",
+          "dropped": 0,
+          "queued": 9,
+          "sent": 1318
+        },
+        {
+          "id": "s318",
+          "channel": "orders",
+          "client": "stalled-95",
+          "dropped": 0,
+          "queued": 9,
+          "sent": 1318
+        },
+        {
+          "id": "s320",
+          "channel": "orders",
+          "client": "stalled-96",
+          "dropped": 0,
+          "queued": 8,
+          "sent": 1318
+        },
+        {
+          "id": "s326",
+          "channel": "orders",
+          "client": "stalled-97",
+          "dropped": 0,
+          "queued": 8,
+          "sent": 1318
+        },
+        {
+          "id": "s329",
+          "channel": "orders",
+          "client": "stalled-98",
+          "dropped": 0,
+          "queued": 8,
+          "sent": 1318
+        },
+        {
+          "id": "s332",
+          "channel": "orders",
+          "client": "stalled-99",
+          "dropped": 0,
+          "queued": 6,
+          "sent": 1319
+        },
+        {
+          "id": "s336",
+          "channel": "orders",
+          "client": "stalled-100",
+          "dropped": 0,
+          "queued": 6,
+          "sent": 1319
+        },
+        {
+          "id": "s339",
+          "channel": "orders",
+          "client": "stalled-101",
+          "dropped": 0,
+          "queued": 6,
+          "sent": 1319
+        },
+        {
+          "id": "s340",
+          "channel": "orders",
+          "client": "stalled-102",
+          "dropped": 0,
+          "queued": 5,
+          "sent": 1319
+        },
+        {
+          "id": "s346",
+          "channel": "orders",
+          "client": "stalled-103",
+          "dropped": 0,
+          "queued": 5,
+          "sent": 1319
+        },
+        {
+          "id": "s349",
+          "channel": "orders",
+          "client": "stalled-104",
+          "dropped": 0,
+          "queued": 5,
+          "sent": 1319
+        },
+        {
+          "id": "s352",
+          "channel": "orders",
+          "client": "stalled-105",
+          "dropped": 0,
+          "queued": 4,
+          "sent": 1319
+        },
+        {
+          "id": "s355",
+          "channel": "orders",
+          "client": "stalled-106",
+          "dropped": 0,
+          "queued": 4,
+          "sent": 1319
+        },
+        {
+          "id": "s359",
+          "channel": "orders",
+          "client": "stalled-107",
+          "dropped": 0,
+          "queued": 4,
+          "sent": 1319
+        },
+        {
+          "id": "s362",
+          "channel": "orders",
+          "client": "stalled-108",
+          "dropped": 0,
+          "queued": 3,
+          "sent": 1319
+        },
+        {
+          "id": "s365",
+          "channel": "orders",
+          "client": "stalled-109",
+          "dropped": 0,
+          "queued": 3,
+          "sent": 1319
+        },
+        {
+          "id": "s369",
+          "channel": "orders",
+          "client": "stalled-110",
+          "dropped": 0,
+          "queued": 3,
+          "sent": 1319
+        },
+        {
+          "id": "s372",
+          "channel": "orders",
+          "client": "stalled-111",
+          "dropped": 0,
+          "queued": 2,
+          "sent": 1319
+        },
+        {
+          "id": "s377",
+          "channel": "orders",
+          "client": "stalled-112",
+          "dropped": 0,
+          "queued": 2,
+          "sent": 1319
+        },
+        {
+          "id": "s379",
+          "channel": "orders",
+          "client": "stalled-113",
+          "dropped": 0,
+          "queued": 2,
+          "sent": 1319
+        },
+        {
+          "id": "s382",
+          "channel": "orders",
+          "client": "stalled-114",
+          "dropped": 0,
+          "queued": 2,
+          "sent": 1319
+        },
+        {
+          "id": "s386",
+          "channel": "orders",
+          "client": "stalled-115",
+          "dropped": 0,
+          "queued": 1,
+          "sent": 1319
+        },
+        {
+          "id": "s387",
+          "channel": "orders",
+          "client": "stalled-116",
+          "dropped": 0,
+          "queued": 1,
+          "sent": 1319
+        },
+        {
+          "id": "s390",
+          "channel": "orders",
+          "client": "stalled-117",
+          "dropped": 0,
+          "queued": 1,
+          "sent": 1318
+        },
+        {
+          "id": "s395",
+          "channel": "orders",
+          "client": "stalled-118",
+          "dropped": 0,
+          "queued": 1,
+          "sent": 1318
+        },
+        {
+          "id": "s399",
+          "channel": "orders",
+          "client": "stalled-119",
+          "dropped": 0,
+          "queued": 1,
+          "sent": 1318
+        },
+        {
+          "id": "s400",
+          "channel": "orders",
+          "client": "stalled-120",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1319
+        },
+        {
+          "id": "s404",
+          "channel": "orders",
+          "client": "stalled-121",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1319
+        },
+        {
+          "id": "s409",
+          "channel": "orders",
+          "client": "stalled-122",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1319
+        },
+        {
+          "id": "s412",
+          "channel": "orders",
+          "client": "stalled-123",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1318
+        },
+        {
+          "id": "s415",
+          "channel": "orders",
+          "client": "stalled-124",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1318
+        },
+        {
+          "id": "s419",
+          "channel": "orders",
+          "client": "stalled-125",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1318
+        },
+        {
+          "id": "s420",
+          "channel": "orders",
+          "client": "stalled-126",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1317
+        },
+        {
+          "id": "s426",
+          "channel": "orders",
+          "client": "stalled-127",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1317
+        },
+        {
+          "id": "s429",
+          "channel": "orders",
+          "client": "stalled-128",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1317
+        },
+        {
+          "id": "s431",
+          "channel": "orders",
+          "client": "stalled-129",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1316
+        },
+        {
+          "id": "s436",
+          "channel": "orders",
+          "client": "stalled-130",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1316
+        },
+        {
+          "id": "s439",
+          "channel": "orders",
+          "client": "stalled-131",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1316
+        },
+        {
+          "id": "s441",
+          "channel": "orders",
+          "client": "stalled-132",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1315
+        },
+        {
+          "id": "s448",
+          "channel": "orders",
+          "client": "stalled-133",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1315
+        },
+        {
+          "id": "s449",
+          "channel": "orders",
+          "client": "stalled-134",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1315
+        },
+        {
+          "id": "s451",
+          "channel": "orders",
+          "client": "stalled-135",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1314
+        },
+        {
+          "id": "s456",
+          "channel": "orders",
+          "client": "stalled-136",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1314
+        },
+        {
+          "id": "s459",
+          "channel": "orders",
+          "client": "stalled-137",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1314
+        },
+        {
+          "id": "s462",
+          "channel": "orders",
+          "client": "stalled-138",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1314
+        },
+        {
+          "id": "s468",
+          "channel": "orders",
+          "client": "stalled-139",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1313
+        },
+        {
+          "id": "s470",
+          "channel": "orders",
+          "client": "stalled-140",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1313
+        },
+        {
+          "id": "s472",
+          "channel": "orders",
+          "client": "stalled-141",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1312
+        },
+        {
+          "id": "s477",
+          "channel": "orders",
+          "client": "stalled-142",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1312
+        },
+        {
+          "id": "s479",
+          "channel": "orders",
+          "client": "stalled-143",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1312
+        },
+        {
+          "id": "s482",
+          "channel": "orders",
+          "client": "stalled-144",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1311
+        },
+        {
+          "id": "s486",
+          "channel": "orders",
+          "client": "stalled-145",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1311
+        },
+        {
+          "id": "s489",
+          "channel": "orders",
+          "client": "stalled-146",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1311
+        },
+        {
+          "id": "s492",
+          "channel": "orders",
+          "client": "stalled-147",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1310
+        },
+        {
+          "id": "s495",
+          "channel": "orders",
+          "client": "stalled-148",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1310
+        },
+        {
+          "id": "s499",
+          "channel": "orders",
+          "client": "stalled-149",
+          "dropped": 0,
+          "queued": 0,
+          "sent": 1310
+        }
+      ],
+      "ws_messages_sent": 664018,
+      "ws_bytes_sent": 129413954,
+      "http_poll_requests": 0,
+      "http_poll_bytes": 0,
+      "rss_bytes": 128307200
+    },
+    "subscriber_order_inversions": 0
+  },
+  "traffic": {
+    "window_s": 59.99288034439087,
+    "server_ws_messages_per_s": 10051.1926838395,
+    "server_ws_bytes_per_s": 1959507.5169780732,
+    "server_http_poll_requests_per_s": 0.0,
+    "server_http_poll_bytes_per_s": 0.0,
+    "client_messages_per_s": 7035.0,
+    "client_requests_per_s": 0.0,
+    "client_bytes_per_s": 1371486.6666666667
+  },
+  "loadgen": {
+    "workers": 4,
+    "loop_lag_ms": {
+      "0": {
+        "samples": 4844,
+        "p50": 0.31560001662001014,
+        "p99": 16.353400016669184,
+        "max": 24.08060000743717
+      },
+      "1": {
+        "samples": 4843,
+        "p50": 0.30720001086592674,
+        "p99": 16.3318999693729,
+        "max": 24.475499987602234
+      },
+      "2": {
+        "samples": 4839,
+        "p50": 0.3548999666236341,
+        "p99": 16.369799966923892,
+        "max": 27.71799999754876
+      },
+      "3": {
+        "samples": 4843,
+        "p50": 0.30749995494261384,
+        "p99": 16.265600046608597,
+        "max": 27.655999991111457
+      }
+    },
+    "loop_lag_p99_ms_max": 16.369799966923892
+  }
+}
