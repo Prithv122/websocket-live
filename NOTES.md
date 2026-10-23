@@ -109,6 +109,29 @@ ruff check and format clean; pytest 205 passed, coverage 90%; `wslive bench --n 
   same window times, so the older run's higher revisions win until they leave the 200-event ring.
   Reload the page between runs. A run id in the record would fix it; the pipeline has none today.
 
+### 2026-10-24 — the registered sweep
+
+- **Conditions.** Started 02:13 IST after a background LLM evaluation had been idle for 17 minutes;
+  no browser, music or other work running. A 10-second sample just before the start showed no
+  process above 2% of the machine (the busiest was an idle editor session). The sweep ran on a
+  clean tree at `401cd9b` and finished at 03:26 (73 minutes, 60 runs).
+- **Result: SUPPORTED UNDER ESCALATION.** Both arms passed the primary cell at the default message
+  size (p95 naive 21.4 ms, queued 24.0 ms, 100% delivered). Ladder step 1 (4 KB padding) froze
+  naive completely: 0% delivered in all three repeats, while queued held 23.6 ms. Step 2 was not
+  needed. No invalid runs.
+- **Reading the freeze.** In the naive ladder runs the server sent about 20 messages per second of
+  about 114 bytes: that is the heartbeat (200 clients, every 10 s), so not one padded event left
+  the server after the publisher blocked. This matches the pre-sweep probe above (naive needed
+  about 265 KB in front of a stalled socket before it blocked; at 4 KB × 20/s that is about 3 s,
+  inside the warm-up).
+- **Validity margin was thin.** The highest loop-lag p99 of any run was 19.9 ms against the 20 ms
+  limit. The Windows timer floor (about 15 ms per 10 ms tick) uses most of that budget; the limit
+  was set knowing this, and no run crossed it.
+- **One outlier.** A `queued` run at N = 500 with 30% stalled had p95 365.9 ms; its two repeats
+  were 35.8 and 36.2 ms. The median rule absorbs it; it is in the report's range column.
+- **Push vs 1 s polling** (descriptive, not in the verdict): one run each at N = 200. The same
+  bytes (every poll has news at 20 events/s), 200 requests/s, p50 502 ms vs 13 ms.
+
 ---
 
 ## Rejected approaches

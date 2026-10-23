@@ -81,13 +81,45 @@ flowchart LR
 with 10% stalled, does `queued` keep the healthy clients' p95 latency (from scheduled time) at or
 under **100 ms** with at least 99% delivered, where `naive` does not?
 
-| Arm | p95 latency, median of 3 (range) | Delivered | Verdict |
-|---|---|---|---|
-| `naive` | TBD (run `wslive sweep`) | TBD | TBD |
-| `queued` | TBD | TBD | TBD |
+**Verdict, computed by `wslive report`: SUPPORTED UNDER ESCALATION.** At the default message size
+both arms passed. With 4 KB messages (step 1 of the pre-registered escalation ladder) `naive` froze
+completely and `queued` was unaffected. 60 runs, none invalid. Source: [`results/REPORT.md`](results/REPORT.md),
+generated from `results/sweep.jsonl`.
 
-_Full matrix (N = 50 / 200 / 500, 0 / 10 / 30% stalled) and push-vs-poll traffic: TBD, from
-`results/REPORT.md`._
+| Stage | Arm | p95 latency, median of 3 (range) | Delivered | Result |
+|---|---|---|---|---|
+| default messages (~190 B) | `naive` | 21.4 ms (18.6–22.4) | 100% | pass |
+| default messages | `queued` | 24.0 ms (22.8–24.9) | 100% | pass |
+| 4 KB messages | `naive` | ∞ | **0%** | **fail** |
+| 4 KB messages | `queued` | 23.6 ms (23.2–24.2) | 100% | pass |
+
+- **What "0%" means.** In every `naive` run at 4 KB, not one healthy client received a single event
+  in the 60-second window: the publisher's `await send()` to a stalled socket blocked before the
+  window opened and never returned, so all 180 healthy clients waited behind 20 frozen ones. The
+  server kept answering only with heartbeats. The second ladder step (a 4 KB receive buffer on the
+  stalled clients) was not needed and not run.
+- **Why the small-message runs passed.** At 20 events/s of about 190 bytes, the kernel and server
+  send buffers in front of a stalled socket did not fill within one 65-second run, so `naive` never
+  had to wait. The failure was there, only slower than the run; at 4 KB the same buffers filled
+  during the 3-second warm-up. The ladder was written before any run for exactly this case.
+- **`queued` costs a few milliseconds when nothing is wrong.** With no stalled clients its p95 was
+  higher than `naive`'s at every size (N = 200: 24.6 vs 20.4 ms; N = 500: 38.6 vs 30.6 ms): the
+  extra queue hop and one writer task per client. That is the price of the insurance.
+- **Full matrix** (N = 50 / 200 / 500, 0 / 10 / 30% stalled, small messages): every cell delivered
+  100% with zero gaps in both arms; the worst median p95 was 38.6 ms (`queued`, N = 500, no stalls).
+  One `queued` run at N = 500 with 30% stalled had a p95 of 365.9 ms against 35.8–36.2 ms for its
+  repeats; the median ignores it, and the report lists it in the range.
+- **Validity.** No run was invalid: every load-generator worker's loop-lag p99 stayed under the
+  20 ms limit, and every intended stalled and healthy client connected. The margin was thin (the
+  highest was 19.9 ms), mostly Windows timer granularity, which puts an idle floor of about 15 ms
+  under a 10 ms ticker (see `EVAL_PLAN.md`).
+- **Push vs 1 s polling** (descriptive, one run each, N = 200, `results/push_vs_poll/`): the same
+  bytes (about 780 KB/s from the server, because at 20 events/s every poll has news) but 200 HTTP
+  requests per second, and a p50 latency of 502 ms instead of 13 ms. Polling's byte cost would show
+  at low event rates, which were not measured.
+
+All numbers come from one laptop (Intel i7-8850H, Windows 11) running both the server and the load
+generator; they describe this simulator, not a production system.
 
 ## 6. How to run
 
