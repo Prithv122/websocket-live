@@ -98,7 +98,69 @@ export function latestOrders({ store, now }) {
   return { id: "latest-orders", title, html, wide: true };
 }
 
-/* 4. Connection health. */
+/* 4. Windowed aggregates from the streaming pipeline (channel `windows`). Each event's data is
+   one window record: {window_start, window_end, zone, orders, revenue_cents, revenue,
+   late_dropped, revision, final, emitted_at}. In revise mode a window arrives several times,
+   so the table keeps the highest revision per (zone, window_start). */
+
+const WINDOW_ROWS = 18; // three windows of six zones
+
+/** Stream time in seconds as m:ss, or h:mm:ss from an hour on. */
+export function formatStreamTime(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  const h = Math.floor(s / 3600);
+  const mm = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(mm).padStart(2, "0")}:${ss}` : `${mm}:${ss}`;
+}
+
+const isWindow = (d) =>
+  typeof d.zone === "string" && Number.isFinite(d.window_start) && Number.isFinite(d.window_end) && Number.isInteger(d.revision);
+
+/** Newest revision of each (zone, window_start), latest window first; malformed records skipped. */
+export function latestWindowRows(events, limit = WINDOW_ROWS) {
+  const byKey = new Map();
+  for (const { data } of events) {
+    if (!isWindow(data)) continue;
+    const key = `${data.zone}\u0000${data.window_start}`;
+    const seen = byKey.get(key);
+    if (!seen || data.revision >= seen.revision) byKey.set(key, data);
+  }
+  return [...byKey.values()]
+    .sort((a, b) => b.window_start - a.window_start || a.zone.localeCompare(b.zone))
+    .slice(0, limit);
+}
+
+export function latestWindows({ store }) {
+  const title = "Latest windows";
+  const rows = latestWindowRows(store.events);
+  if (rows.length === 0) return { id: "latest-windows", title, html: empty("Waiting for windows…"), wide: true };
+
+  const num = (n) => (Number.isFinite(n) ? formatInt(n) : "–");
+  const body = rows
+    .map((d) => {
+      const rupees = Number.isInteger(d.revenue_cents) ? d.revenue_cents / 100 : d.revenue;
+      const state = d.final === true ? "final" : "provisional";
+      return (
+        `<tr><th scope="row">${formatStreamTime(d.window_start)}–${formatStreamTime(d.window_end)}</th>` +
+        `<td>${esc(d.zone)}</td><td class="num">${num(d.orders)}</td>` +
+        `<td class="num">${Number.isFinite(rupees) ? formatAmount(rupees) : "–"}</td>` +
+        `<td class="num">${num(d.late_dropped)}</td><td class="num">${formatInt(d.revision)}</td>` +
+        `<td><span class="status status--${state}">${state}</span></td></tr>`
+      );
+    })
+    .join("");
+  const html =
+    `<div class="table-wrap"><table><caption class="visually-hidden">Newest revision of the ${rows.length} most recent zone windows, latest window first</caption>` +
+    `<thead><tr><th scope="col">Window</th><th scope="col">Zone</th><th scope="col" class="num">Orders</th>` +
+    `<th scope="col" class="num">Revenue (₹)</th><th scope="col" class="num">Late dropped</th>` +
+    `<th scope="col" class="num">Revision</th><th scope="col">State</th></tr></thead><tbody>${body}</tbody></table></div>` +
+    `<p class="note">Window times are stream (event) time, not wall clock. Late dropped is the zone's running total. ` +
+    `A provisional row can still be revised.</p>`;
+  return { id: "latest-windows", title, html, wide: true };
+}
+
+/* 5. Connection health. */
 
 const STATE_LABEL = { idle: "Idle", connecting: "Connecting", open: "Connected", closed: "Disconnected" };
 
@@ -133,8 +195,9 @@ export function connectionPanel({ store, conn }) {
   return { id: "connection", title: "Connection", html };
 }
 
-/** Panels for the built-in orders channel, and for any channel with no renderers of its own. */
+/** Panels for the built-in channels, and for any channel with no renderers of its own. */
 export const defaultRenderers = {
   orders: [revenueByZone, eventsPerSecond, latestOrders, connectionPanel],
+  windows: [latestWindows, eventsPerSecond, connectionPanel],
   "*": [eventsPerSecond, connectionPanel],
 };

@@ -344,6 +344,14 @@ td.num {
   color: var(--bad);
 }
 
+.status--final {
+  color: var(--ok);
+}
+
+.status--provisional {
+  color: var(--warn);
+}
+
 /* Connection panel */
 
 .kv {

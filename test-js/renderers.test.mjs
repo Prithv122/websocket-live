@@ -7,7 +7,10 @@ import {
   eventsPerSecond,
   formatAge,
   formatRupees,
+  formatStreamTime,
   latestOrders,
+  latestWindowRows,
+  latestWindows,
   revenueByZone,
   statusAnnouncement,
   statusLabel,
@@ -144,6 +147,77 @@ test("status labels and announcements", () => {
   assert.equal(statusLabel({ state: "open" }), "Connected");
   assert.equal(statusAnnouncement("orders", "open"), "orders channel: connected");
   assert.equal(statusAnnouncement("orders", "reconnecting"), "orders channel: connection lost, reconnecting");
+});
+
+// Window records as the streaming pipeline's bridge publishes them on the `windows` channel.
+const win = (zone, start, revision, final, extra = {}) => ({
+  window_start: start,
+  window_end: start + 60,
+  zone,
+  orders: 3,
+  revenue_cents: 425050,
+  revenue: 4250.5,
+  late_dropped: 1,
+  revision,
+  final,
+  emitted_at: start + 61.5,
+  ...extra,
+});
+
+test("formatStreamTime", () => {
+  assert.deepEqual([0, 59.6, 60, 600, 3599, 3600, 3725, -3].map(formatStreamTime), ["0:00", "1:00", "1:00", "10:00", "59:59", "1:00:00", "1:02:05", "0:00"]);
+});
+
+test("window rows: newest revision per (zone, window), latest window first, zones alphabetical", () => {
+  const events = [
+    win("north", 0, 0, false, { orders: 1 }),
+    win("north", 0, 1, true, { orders: 2 }),
+    win("airport", 60, 0, false),
+    win("north", 60, 0, false),
+    win("north", 0, 0, false, { orders: 9 }), // a lower revision arriving late does not win
+  ].map((data) => ({ data }));
+  const rows = latestWindowRows(events);
+  assert.deepEqual(rows.map((r) => [r.zone, r.window_start, r.revision]), [["airport", 60, 0], ["north", 60, 0], ["north", 0, 1]]);
+  assert.equal(rows[2].orders, 2);
+});
+
+test("window rows: malformed records are skipped and the row count is capped", () => {
+  const events = [{ data: { zone: "north" } }, { data: win(42, 0, 0, true) }, { data: { order_id: "ord-1", zone: "x", amount: 1 } }];
+  for (let i = 0; i < 30; i += 1) events.push({ data: win(`z${i % 6}`, Math.floor(i / 6) * 60, 0, true) });
+  const rows = latestWindowRows(events);
+  assert.equal(rows.length, 18);
+  assert.equal(rows[0].window_start, 240);
+});
+
+test("windows table: stream-time labels, paise-exact revenue, state badge, escaped zone", () => {
+  const store = createStore({ now: () => NOW });
+  for (const [i, data] of [win("north", 60, 0, false), win("<b>x</b>", 0, 2, true, { revenue_cents: 99, revenue: 0.99 })].entries()) {
+    store.add({ seq: i + 1, ts: new Date(NOW).toISOString(), type: "event", data });
+  }
+  const { id, title, html, wide } = latestWindows({ store: store.snapshot(), now: NOW });
+  assert.equal(id, "latest-windows");
+  assert.equal(title, "Latest windows");
+  assert.ok(wide);
+  assert.match(html, /<th scope="row">1:00–2:00<\/th><td>north<\/td><td class="num">3<\/td><td class="num">4,250\.50<\/td>/);
+  assert.match(html, /<span class="status status--provisional">provisional<\/span>/);
+  assert.match(html, /<td class="num">0\.99<\/td><td class="num">1<\/td><td class="num">2<\/td><td><span class="status status--final">final/);
+  assert.ok(html.indexOf("1:00–2:00") < html.indexOf("0:00–1:00"), "latest window first");
+  assert.doesNotMatch(html, /<b>x/);
+  assert.match(html, /&lt;b&gt;x/);
+  assert.doesNotMatch(html, /NaN|undefined|null/);
+  assertBalanced(html, ["table", "tr", "thead", "tbody", "td", "th", "span", "div", "p"]);
+});
+
+test("windows table: empty state, and orders on the channel do not show as windows", () => {
+  const store = createStore({ now: () => NOW });
+  assert.match(latestWindows({ store: store.snapshot() }).html, /^<p class="empty">Waiting for windows/);
+  store.add({ seq: 1, ts: new Date(NOW).toISOString(), data: order(1, "north", 10) });
+  assert.match(latestWindows({ store: store.snapshot() }).html, /Waiting for windows/);
+});
+
+test("the windows channel has its own panels", () => {
+  assert.equal(defaultRenderers.windows[0], latestWindows);
+  assert.ok(defaultRenderers.windows.includes(connectionPanel));
 });
 
 test("every default renderer returns {id, title, html} and the ids are unique", () => {

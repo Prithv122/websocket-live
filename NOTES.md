@@ -88,6 +88,27 @@ Fresh clone of `683e82e`, fresh `uv sync --all-groups --locked` and `npm ci`, Wi
 ruff check and format clean; pytest 205 passed, coverage 90%; `wslive bench --n 3 --stalled 1
 --seconds 3 --procs 1` wrote a result file; `npm test` 64 passed; `html-validate` clean.
 
+### 2026-10-23 — window renderer for the streaming pipeline
+
+- **The two projects disagreed on the contract, and only a real run showed it.** The
+  streaming-pipeline bridge posted `{"type": "window"}`; this hub accepts only `type: "event"`
+  (the other types are its own control messages) and answered 422. The bridge's tests used a
+  stub hub that accepted anything. Fixed on the bridge side: it now posts `type: "event"` to
+  `/publish/windows`, and the channel says what the payload is, as `orders` does. Letting the hub
+  accept new types would have meant a protocol bump, and this client would have read each one as
+  a seq hole and reconnected.
+- **Renderer:** `latestWindows` keeps the highest `revision` per `(zone, window_start)`, because
+  revise mode sends a window several times and a late lower revision must not overwrite a final
+  one. Revenue comes from `revenue_cents`, so it is exact to the paisa. Times are stream (event)
+  time. `late_dropped` is the zone's running total, not a per-window count, and the panel says so.
+- **Checked in a browser through Redpanda:** a 600 s seeded log went produce → consume (revise,
+  `L = 30`) → bridge → hub. 176 records were forwarded and received, with no gaps or duplicates.
+  All 18 rows shown matched the simulator's records for the same log. A paced run with 90 s delays
+  showed provisional rows turning final, and non-zero late drops.
+- **Known limit:** rerunning the pipeline into an open page restarts revisions at 0 for the
+  same window times, so the older run's higher revisions win until they leave the 200-event ring.
+  Reload the page between runs. A run id in the record would fix it; the pipeline has none today.
+
 ---
 
 ## Rejected approaches

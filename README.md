@@ -112,6 +112,11 @@ uv run wslive sweep; uv run wslive report  # the pre-registered matrix (about 70
 `POST /publish/{channel}` is open by default for local use. Set `PUBLISH_TOKEN` in the
 environment to require `Authorization: Bearer <token>`.
 
+<http://127.0.0.1:8000/?channel=windows> shows the windowed aggregates that the
+[streaming-pipeline](https://github.com/Prithv122/streaming-pipeline) bridge publishes: the newest
+revision of each zone window, marked provisional or final. Open it before the bridge runs; a new
+client gets live events only.
+
 ## 7. What I'd change at 100× scale
 
 - **One process, one core.** Every JSON encode and socket write runs on one event loop. Encode
